@@ -120,12 +120,18 @@ duplicating them.
 
 ## Troubleshooting
 
-**Steam Big Picture's own UI judders, but games run smoothly.** Check
+**Steam Big Picture's own UI judders, but games run smoothly.** Big
+Picture's UI is CEF/Chromium-based; without hardware acceleration it
+composites in software and stutters independently of the actual game
+(which usually gets direct DRM scan-out from gamescope and isn't affected
+either way). `install.sh` sets this for you (`CEFGPUBlocklistDisabled` and
+`GPUAccelWebViewsV3` in `~/.steam/registry.vdf`, the same two keys behind
 Steam's Settings -> Interface -> "Enable GPU accelerated rendering in Big
-Picture Mode" (wording varies by Steam version). Big Picture's UI is
-CEF/Chromium-based; without hardware acceleration it composites in
-software and stutters independently of the actual game (which usually gets
-direct DRM scan-out from gamescope and isn't affected either way).
+Picture Mode" toggle) -- but only if that file already exists, i.e. Steam
+has run at least once. On a genuinely fresh install, `install.sh` runs
+*before* Steam's first launch, so the file won't exist yet; re-run
+`install.sh` after the first boot to apply it, or just flip the toggle by
+hand.
 
 **A specific game caps its resolution below your native resolution, even
 though gamescope's output and XRandr both correctly report the full native

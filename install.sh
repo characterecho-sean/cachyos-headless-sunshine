@@ -97,15 +97,50 @@ fi
 echo "==> Granting scheduling capability to gamescope (frame pacing for composited content)"
 setcap 'cap_sys_nice=eip' /usr/bin/gamescope
 
-echo "==> Writing Sunshine config"
+echo "==> Merging Sunshine config"
 mkdir -p "$TARGET_HOME/.config/sunshine"
-cat > "$TARGET_HOME/.config/sunshine/sunshine.conf" <<EOF
-csrf_allowed_origins = ${SUNSHINE_CSRF_ORIGINS}
-capture = kms
-adapter_name = ${SUNSHINE_RENDER_NODE}
-EOF
+SUNSHINE_CONF="$TARGET_HOME/.config/sunshine/sunshine.conf"
+touch "$SUNSHINE_CONF"
+
+# Update just our keys in place if present, append if not -- preserves
+# anything else Sunshine's own web UI has written to this file (encoder
+# settings, pairing state, etc.) instead of clobbering the whole thing.
+set_conf_value() {
+    local key="$1" value="$2"
+    local escaped
+    escaped=$(printf '%s' "$value" | sed -e 's/[\&|]/\\&/g')
+    if grep -qE "^${key}[[:space:]]*=" "$SUNSHINE_CONF"; then
+        sed -i -E "s|^${key}[[:space:]]*=.*|${key} = ${escaped}|" "$SUNSHINE_CONF"
+    else
+        printf '%s = %s\n' "$key" "$value" >> "$SUNSHINE_CONF"
+    fi
+}
+
+set_conf_value "csrf_allowed_origins" "$SUNSHINE_CSRF_ORIGINS"
+set_conf_value "capture" "kms"
+set_conf_value "adapter_name" "$SUNSHINE_RENDER_NODE"
 
 cp "$SCRIPT_DIR/files/apps.json" "$TARGET_HOME/.config/sunshine/apps.json"
+
+echo "==> Enabling GPU-accelerated Big Picture rendering in Steam"
+STEAM_REGISTRY="$TARGET_HOME/.steam/registry.vdf"
+if [ -f "$STEAM_REGISTRY" ]; then
+    for key in CEFGPUBlocklistDisabled GPUAccelWebViewsV3; do
+        if grep -qE "\"${key}\"" "$STEAM_REGISTRY"; then
+            sed -i -E "s|(\"${key}\"[[:space:]]*)\"[^\"]*\"|\1\"1\"|" "$STEAM_REGISTRY"
+        else
+            echo "    '${key}' not found in registry.vdf -- set it by hand via Steam's" >&2
+            echo "    Settings -> Interface -> 'Enable GPU accelerated rendering in Big Picture Mode'" >&2
+        fi
+    done
+else
+    echo "    Steam hasn't run yet, so ~/.steam/registry.vdf doesn't exist -- this is"
+    echo "    expected on a fresh install. Once Steam has launched once (which happens"
+    echo "    automatically on first boot), either re-run install.sh to apply this, or"
+    echo "    set it by hand via Steam's Settings -> Interface -> 'Enable GPU"
+    echo "    accelerated rendering in Big Picture Mode'. Without it, Big Picture's own"
+    echo "    UI can judder even though games run smoothly (see README Troubleshooting)."
+fi
 
 echo "==> Installing gamescope session script"
 cp "$SCRIPT_DIR/files/gamescope-session.sh" "$TARGET_HOME/.config/gamescope-session.sh"
@@ -145,6 +180,8 @@ chown -R "$TARGET_USER":"$TARGET_USER" \
     "$TARGET_HOME/.config/gamescope-session.sh" \
     "$TARGET_HOME/.local/share" \
     "$ZPROFILE"
+# sed -i replaces the file (new inode owned by root); put ownership back if it exists.
+[ -f "$STEAM_REGISTRY" ] && chown "$TARGET_USER":"$TARGET_USER" "$STEAM_REGISTRY"
 
 echo
 echo "==> Done."
