@@ -15,11 +15,11 @@ that way). Gamepad uses SDL2's GameController API (named buttons/axes,
 consistent across controllers) via pygame.controller.
 """
 import os
+import time
 import pygame
 
 CONFIG_DIR = os.path.expanduser("~/.config/streaming-rig")
 HDR_CONF = os.path.join(CONFIG_DIR, "hdr.conf")
-SELECTOR = os.path.join(CONFIG_DIR, "next-app")
 
 SDR_MIN, SDR_MAX, SDR_STEP = 50, 500, 25
 TARGET_MIN, TARGET_MAX, TARGET_STEP = 200, 4000, 100
@@ -78,7 +78,28 @@ class Button:
 
 def main():
     os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
-    pygame.init()
+
+    # This can launch very early in gamescope's own startup (right after
+    # gamescope-session.sh's initial sleep), before its Wayland server is
+    # actually ready to accept new client connections even though the
+    # socket file already exists -- Sunshine hits the same early-race
+    # error in its own log but retries internally; do the same here. The
+    # failure actually surfaces at display.set_mode(), not pygame.init(),
+    # so retry the whole init+open-window sequence together.
+    screen = None
+    last_err = None
+    for _ in range(60):
+        try:
+            pygame.init()
+            screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            break
+        except pygame.error as e:
+            last_err = e
+            pygame.quit()
+            time.sleep(0.5)
+    else:
+        raise last_err
+
     pygame.joystick.init()
     # Some of Sunshine's other virtual input devices (touch/pen/mouse
     # passthrough) can enumerate here alongside the real gamepad without
@@ -93,7 +114,6 @@ def main():
         except pygame.error:
             pass
 
-    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.display.set_caption("HDR Calibration")
     pygame.mouse.set_visible(True)
     w, h = screen.get_size()
@@ -122,12 +142,12 @@ def main():
 
     def apply_and_restart():
         write_hdr_conf(sdr_nits, target_nits)
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(SELECTOR, "w") as f:
-            f.write("calibrate\n")
-        # The persistent watcher started by gamescope-session.sh notices
-        # this file and handles the actual delayed restart -- we don't
-        # kill gamescope directly here.
+        # mode is already "calibrate" (that's how we got here) -- just
+        # need gamescope to restart to pick up the new nits values.
+        # Backgrounded with a short delay so this click's own input event
+        # and any in-flight frame finish first, rather than cutting the
+        # stream off mid-event.
+        os.system("(sleep 2; pkill gamescope) >/dev/null 2>&1 &")
 
     def exit_to_steam():
         raise SystemExit

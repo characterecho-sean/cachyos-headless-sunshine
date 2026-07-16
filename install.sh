@@ -182,9 +182,20 @@ echo "==> Installing the HDR calibration tool (Sunshine app: Calibrate HDR)"
 STREAMING_RIG_DIR="$TARGET_HOME/.config/streaming-rig"
 mkdir -p "$STREAMING_RIG_DIR"
 cp "$SCRIPT_DIR/apps/hdr-calibrate.py" "$STREAMING_RIG_DIR/hdr-calibrate.py"
+cp "$SCRIPT_DIR/files/streaming-session.sh" "$STREAMING_RIG_DIR/streaming-session.sh"
+cp "$SCRIPT_DIR/files/calibration-session.sh" "$STREAMING_RIG_DIR/calibration-session.sh"
 cp "$SCRIPT_DIR/files/enter-calibration.sh" "$STREAMING_RIG_DIR/enter-calibration.sh"
 cp "$SCRIPT_DIR/files/exit-calibration.sh" "$STREAMING_RIG_DIR/exit-calibration.sh"
-chmod +x "$STREAMING_RIG_DIR/hdr-calibrate.py" "$STREAMING_RIG_DIR/enter-calibration.sh" "$STREAMING_RIG_DIR/exit-calibration.sh"
+chmod +x "$STREAMING_RIG_DIR/hdr-calibrate.py" "$STREAMING_RIG_DIR/streaming-session.sh" \
+    "$STREAMING_RIG_DIR/calibration-session.sh" "$STREAMING_RIG_DIR/enter-calibration.sh" \
+    "$STREAMING_RIG_DIR/exit-calibration.sh"
+
+# Persistent (not one-shot) mode flag: gamescope-session.sh reads this once
+# at each launch to decide whether to run the normal streaming session or
+# the calibration one. Only set a default if missing, so re-running
+# install.sh doesn't boot you out of whichever mode you're actually in.
+MODE_FILE="$STREAMING_RIG_DIR/mode"
+[ -f "$MODE_FILE" ] || echo steam > "$MODE_FILE"
 
 HDR_CONF="$STREAMING_RIG_DIR/hdr.conf"
 if [ ! -f "$HDR_CONF" ]; then
