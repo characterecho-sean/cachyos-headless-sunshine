@@ -47,9 +47,14 @@ EDID_PRODUCT_NAME="Virtual HDMI"
 
 # ---- HDR (gamescope inverse tone-mapping) ----
 # gamescope will tone-map SDR game content up to HDR for the physical
-# output. These control how that mapping is done; the defaults are a
-# reasonable starting point. Only relevant if your display supports HDR --
-# leave HDR_ENABLED=false otherwise.
+# output. Only relevant if your display supports HDR -- leave
+# HDR_ENABLED=false otherwise.
+#
+# HDR_SDR_NITS/HDR_TARGET_NITS are only the *initial* values, written to
+# ~/.config/streaming-rig/hdr.conf on first install. After that, use the
+# "Calibrate HDR" app in Sunshine to tune them interactively against your
+# actual display -- it edits that file directly, and re-running
+# install.sh won't overwrite your tuned values.
 HDR_ENABLED=true
 HDR_SDR_NITS=100
 HDR_TARGET_NITS=1000

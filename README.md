@@ -51,8 +51,44 @@ resolution every boot. This repo:
    `--mangoapp` flag (its recommended way to run MangoHud, rather than
    enabling it on the game or gamescope separately), so you can check
    real in-game frame times/FPS while streaming. Toggle in gamescope's
-   Quick Access Menu; set `MANGOHUD_ENABLED=false` in `config.sh` to skip
-   it entirely.
+   Quick Access Menu (see below for how to actually open that on a
+   standard controller); set `MANGOHUD_ENABLED=false` in `config.sh` to
+   skip it entirely. `gamescope-session.sh` also sets `SteamDeck=1` and
+   launches `steam -bigpicture -steamos3`, since Steam's Quick Access Menu
+   only exposes the Performance Overlay Level control (which drives the
+   MangoHud visibility) when it believes it's running on genuine Deck
+   hardware -- it isn't otherwise unlocked on a vanilla desktop Linux +
+   gamescope setup. One side effect: this also unlocks Steam's Suspend
+   power option, which `install.sh` masks at the systemd level (see
+   Prerequisites/below) since a stray button press suspending a headless
+   streaming box is a real, observed failure mode, not a hypothetical one.
+6. **Installs an interactive HDR calibration tool**, selectable as its own
+   "Calibrate HDR" app from Sunshine/Moonlight, so you can tune the
+   inverse-tone-mapping curve against your actual display instead of
+   guessing at numbers in `config.sh`. See **Calibrating HDR** below.
+
+## Calibrating HDR
+
+gamescope has no live control for its SDR->HDR inverse-tone-mapping curve
+(`--hdr-itm-sdr-nits`/`--hdr-itm-target-nits` are startup-only flags), so
+this isn't a live-dragging slider -- it's an adjust-and-restart loop:
+
+1. From Moonlight, launch "Calibrate HDR" instead of "Steam". This restarts
+   the session (a brief stream interruption, expected) into a fullscreen
+   tool showing a grayscale test pattern and the current SDR white
+   level / HDR peak brightness values.
+2. Adjust the values (touch, or a controller's D-pad to move focus + A to
+   select), then hit **Apply & Preview**. This writes
+   `~/.config/streaming-rig/hdr.conf` and restarts the session again, so
+   you're looking at the *actual* result on your real display, not a
+   preview.
+3. Repeat until it looks right, then hit **Exit** to return to the normal
+   Steam session. Your tuned values persist in `hdr.conf` -- re-running
+   `install.sh` won't overwrite them.
+
+A reasonable starting point if you know your display's spec sheet: set
+peak brightness close to its published HDR peak nits, and raise or lower
+white level if midtones look too dark/washed out.
 
 ## Prerequisites
 
@@ -67,11 +103,12 @@ resolution every boot. This repo:
   machine to this is likely to cause exactly the kind of hard-to-debug
   conflicts this repo is meant to avoid.
 - Arch-based distro with `pacman`. The script installs `gamescope`,
-  `xorg-cvt`, `sunshine`, and `steam` itself (enabling the `multilib` repo
-  first if needed, since Steam requires it) -- all four are plain packages
-  in CachyOS's own repos, no AUR required. Other Arch-based distros should
-  work in principle, but CachyOS is what this has actually been run on, and
-  package availability/naming may differ elsewhere.
+  `xorg-cvt`, `sunshine`, `steam`, `mangohud`, and `python-pygame` itself
+  (enabling the `multilib` repo first if needed, since Steam requires it)
+  -- all plain packages in CachyOS's own repos, no AUR required. Other
+  Arch-based distros should work in principle, but CachyOS is what this
+  has actually been run on, and package availability/naming may differ
+  elsewhere.
 - NVIDIA GPU with the open-source `nvidia-open` kernel module. `EDID_MODE=synthetic`
   (the default, no hardware at all) is verified end-to-end -- including
   HDR in an actual game -- on an RTX 4090 with `nvidia-open` and gamescope
@@ -155,6 +192,29 @@ duplicating them.
   script's `pacman -S --needed ...` call will just no-op past them.
 
 ## Troubleshooting
+
+**Opening Steam's Quick Access Menu with a standard (non-Deck) controller.**
+A single Guide/Xbox-button press opens Steam's main Big Picture
+overlay/home menu -- that's `gamescope`'s `GuideKeyboardHotkey` equivalent.
+The Quick Access Menu (QAM) specifically -- the side panel with Performance,
+Battery, etc. -- needs Guide+A, and the order matters: **hold Guide down
+first, then tap A while still holding Guide**. Pressing them at nearly the
+same time, or A before Guide, won't register as the chord. (Confirmed by
+watching raw evdev events on Sunshine's virtual gamepad device while
+testing -- pressing in the wrong order shows up as two separate button
+events with no real overlap, which Steam's chord detection doesn't treat
+as "Guide held, A pressed while held.")
+
+**A stray Steam power-menu press could suspend the box.** Since
+`gamescope-session.sh` makes Steam believe it's on genuine Deck hardware
+(see "What this actually does" above), Steam's Big Picture power menu also
+exposes a working Suspend option -- not something you want reachable at
+all on a dedicated, always-on streaming appliance. `install.sh` masks
+`sleep.target`/`suspend.target`/`hibernate.target`/`hybrid-sleep.target`/
+`suspend-then-hibernate.target` at the systemd level, so any suspend
+trigger (Steam's menu, `systemctl suspend`, anything) fails harmlessly
+instead of actually sleeping the machine. If you ever *want* suspend to
+work again: `systemctl unmask <target>...`.
 
 **Steam Big Picture's own UI judders, but games run smoothly.** Big
 Picture's UI is CEF/Chromium-based; without hardware acceleration it

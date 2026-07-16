@@ -43,8 +43,8 @@ if ! pacman-conf --repo-list | grep -qx multilib; then
     fi
 fi
 
-echo "==> Installing gamescope, xorg-cvt, sunshine, steam, and mangohud"
-pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud
+echo "==> Installing gamescope, xorg-cvt, sunshine, steam, mangohud, and python-pygame"
+pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud python-pygame
 
 mkdir -p /usr/lib/firmware/edid
 if [ "$EDID_MODE" = "synthetic" ]; then
@@ -171,10 +171,28 @@ echo "==> Installing gamescope session script"
 cp "$SCRIPT_DIR/files/gamescope-session.sh" "$TARGET_HOME/.config/gamescope-session.sh"
 chmod +x "$TARGET_HOME/.config/gamescope-session.sh"
 
+echo "==> Installing the HDR calibration tool (Sunshine app: Calibrate HDR)"
+STREAMING_RIG_DIR="$TARGET_HOME/.config/streaming-rig"
+mkdir -p "$STREAMING_RIG_DIR"
+cp "$SCRIPT_DIR/apps/hdr-calibrate.py" "$STREAMING_RIG_DIR/hdr-calibrate.py"
+cp "$SCRIPT_DIR/files/enter-calibration.sh" "$STREAMING_RIG_DIR/enter-calibration.sh"
+cp "$SCRIPT_DIR/files/exit-calibration.sh" "$STREAMING_RIG_DIR/exit-calibration.sh"
+chmod +x "$STREAMING_RIG_DIR/hdr-calibrate.py" "$STREAMING_RIG_DIR/enter-calibration.sh" "$STREAMING_RIG_DIR/exit-calibration.sh"
+
+HDR_CONF="$STREAMING_RIG_DIR/hdr.conf"
+if [ ! -f "$HDR_CONF" ]; then
+    cat > "$HDR_CONF" <<EOF
+SDR_NITS=${HDR_SDR_NITS}
+TARGET_NITS=${HDR_TARGET_NITS}
+EOF
+else
+    echo "    $HDR_CONF already exists (likely tuned via the calibration tool), leaving it alone"
+fi
+
 echo "==> Wiring autologin console launch (.zprofile)"
 HDR_FLAGS=""
 if [ "$HDR_ENABLED" = "true" ]; then
-    HDR_FLAGS="--hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits ${HDR_SDR_NITS} --hdr-itm-target-nits ${HDR_TARGET_NITS} "
+    HDR_FLAGS="--hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits \"\$SDR_NITS\" --hdr-itm-target-nits \"\$TARGET_NITS\" "
 fi
 
 MANGOHUD_FLAGS=""
@@ -191,6 +209,11 @@ if ! grep -qF "$MARKER" "$ZPROFILE"; then
 
 ${MARKER}
 if [ -z "\$DISPLAY" ] && [ -z "\$WAYLAND_DISPLAY" ] && [ "\$(tty)" = "/dev/tty1" ]; then
+    # SDR_NITS/TARGET_NITS default here, but the "Calibrate HDR" Sunshine app
+    # can override them at runtime via this file without re-running install.sh.
+    SDR_NITS=${HDR_SDR_NITS}
+    TARGET_NITS=${HDR_TARGET_NITS}
+    [ -f "\$HOME/.config/streaming-rig/hdr.conf" ] && . "\$HOME/.config/streaming-rig/hdr.conf"
     exec gamescope --backend drm -O ${HDMI_CONNECTOR} \\
         -W ${TARGET_WIDTH} -H ${TARGET_HEIGHT} -w ${TARGET_WIDTH} -h ${TARGET_HEIGHT} -r ${TARGET_REFRESH} \\
         --generate-drm-mode fixed \\
@@ -208,10 +231,20 @@ mkdir -p "$TARGET_HOME/.local/share"
 chown -R "$TARGET_USER":"$TARGET_USER" \
     "$TARGET_HOME/.config/sunshine" \
     "$TARGET_HOME/.config/gamescope-session.sh" \
+    "$STREAMING_RIG_DIR" \
     "$TARGET_HOME/.local/share" \
     "$ZPROFILE"
 # sed -i replaces the file (new inode owned by root); put ownership back if it exists.
 [ -f "$STEAM_REGISTRY" ] && chown "$TARGET_USER":"$TARGET_USER" "$STEAM_REGISTRY"
+
+echo "==> Disabling sleep/suspend/hibernate"
+# Steam's Big Picture power menu only exposes Suspend when it believes it's
+# on genuine Deck hardware (which gamescope-session.sh's SteamDeck=1 spoof
+# arranges, for QAM/MangoHud access) -- so a stray button press can now
+# actually suspend this box. A dedicated always-on streaming appliance
+# should never honor a suspend request from any source, so mask it at the
+# systemd level rather than trying to prevent every possible trigger.
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 
 echo
 echo "==> Done."

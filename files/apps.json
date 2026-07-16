@@ -3,6 +3,16 @@
         {
             "image-path": "steam.png",
             "name": "Steam"
+        },
+        {
+            "image-path": "desktop-alt.png",
+            "name": "Calibrate HDR",
+            "prep-cmd": [
+                {
+                    "do": "$HOME/.config/streaming-rig/enter-calibration.sh",
+                    "undo": "$HOME/.config/streaming-rig/exit-calibration.sh"
+                }
+            ]
         }
     ],
     "env": {
