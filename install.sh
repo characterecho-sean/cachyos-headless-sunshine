@@ -24,24 +24,27 @@ if [ -z "$TARGET_HOME" ]; then
     exit 1
 fi
 
-echo "==> Checking prerequisites"
-missing=()
-for bin in sunshine steam; do
-    command -v "$bin" >/dev/null 2>&1 || missing+=("$bin")
-done
-if [ "${#missing[@]}" -gt 0 ]; then
-    echo "Missing: ${missing[*]}" >&2
-    echo "Install Sunshine and Steam yourself first (see README), then re-run." >&2
+if ! command -v pacman >/dev/null 2>&1; then
+    echo "This installer is pacman-only (CachyOS/Arch). Install gamescope, xorg-cvt," >&2
+    echo "sunshine, and steam yourself for your distro, then re-run." >&2
     exit 1
 fi
 
-echo "==> Installing gamescope and xorg-cvt"
-if command -v pacman >/dev/null 2>&1; then
-    pacman -S --needed --noconfirm gamescope xorg-cvt
-else
-    echo "Non-pacman system detected -- install 'gamescope' and 'cvt' (xorg-cvt) yourself, then re-run." >&2
-    exit 1
+echo "==> Checking for the multilib repo (required for Steam)"
+if ! pacman-conf --repo-list | grep -qx multilib; then
+    if grep -q '^\s*#\s*\[multilib\]' /etc/pacman.conf; then
+        echo "    enabling multilib in /etc/pacman.conf"
+        sed -i '/^\s*#\s*\[multilib\]/,/^\s*#\s*Include/ s/^\s*#\s*//' /etc/pacman.conf
+        pacman -Sy
+    else
+        echo "multilib isn't enabled and no commented-out [multilib] block was found" >&2
+        echo "in /etc/pacman.conf to uncomment. Enable it yourself, then re-run." >&2
+        exit 1
+    fi
 fi
+
+echo "==> Installing gamescope, xorg-cvt, sunshine, and steam"
+pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam
 
 echo "==> Reading current EDID from ${HDMI_CONNECTOR}"
 CARD_PATH=$(find /sys/class/drm -maxdepth 1 -name "card*-${HDMI_CONNECTOR}" | head -n1)

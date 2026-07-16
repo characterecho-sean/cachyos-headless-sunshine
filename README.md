@@ -56,10 +56,12 @@ resolution every boot. This repo:
   designed to coexist with. Bringing your own already-configured desktop
   machine to this is likely to cause exactly the kind of hard-to-debug
   conflicts this repo is meant to avoid.
-- Arch-based distro with `pacman` (only `gamescope` itself is installed by
-  the script; everything else below you install yourself first). Other
-  Arch-based distros should work in principle, but CachyOS is what this has
-  actually been run on.
+- Arch-based distro with `pacman`. The script installs `gamescope`,
+  `xorg-cvt`, `sunshine`, and `steam` itself (enabling the `multilib` repo
+  first if needed, since Steam requires it) -- all four are plain packages
+  in CachyOS's own repos, no AUR required. Other Arch-based distros should
+  work in principle, but CachyOS is what this has actually been run on, and
+  package availability/naming may differ elsewhere.
 - NVIDIA GPU. This has only been tested with NVIDIA's driver stack; AMD/Intel
   should work for gamescope in general but the capture-backend behavior
   hasn't been verified here.
@@ -71,8 +73,6 @@ resolution every boot. This repo:
 - The [Limine](https://github.com/limine-bootloader/limine) bootloader.
   Other bootloaders aren't automated here -- the installer will tell you
   the one kernel cmdline argument to add by hand.
-- [Sunshine](https://github.com/LizardByte/Sunshine) and Steam already
-  installed.
 - Autologin configured on a text console (tty1) for the user that will run
   the session -- e.g. a `getty@tty1.service` override with
   `--autologin <user>`. This repo doesn't set that up for you, since it's a
@@ -113,10 +113,10 @@ duplicating them.
   the highest common resolution or extend `install.sh` yourself.
 - **Single output**: assumes exactly one HDMI dummy plug / connector is in
   play.
-- **Package installation**: only `gamescope` is installed for you. Sunshine
-  and Steam have their own install methods (AUR, Flatpak, etc.) that vary
-  enough by preference that automating them here felt more likely to
-  fight you than help.
+- **Package installation**: assumes CachyOS's repos, where `sunshine` and
+  `steam` are plain `pacman` packages. On a distro where either comes from
+  the AUR, Flatpak, or somewhere else, install them yourself first and the
+  script's `pacman -S --needed ...` call will just no-op past them.
 
 ## Troubleshooting
 
