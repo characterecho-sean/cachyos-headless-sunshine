@@ -77,17 +77,20 @@ resolution every boot. This repo:
   connected, which is generally what's needed for a mode to actually be
   used. Forcing a connector "on" with nothing plugged in at all (a fully
   virtual monitor) is well supported on the open-source AMD/Intel KMS
-  stack (via DRM's debugfs `force` file, `vkms`, etc.). NVIDIA's kernel
-  driver has an open-source module option now (`nvidia-open`, dual
-  MIT/GPL, which is what this repo assumes), but its KMS/mode-validation
-  logic has historically been its own thing rather than built on the
-  generic DRM helpers that debugfs force-connect relies on, and the
-  userspace side it pairs with -- the X11 driver, GLX/EGL/Vulkan
-  libraries, NVENC/NVFBC -- is still closed-source. That combination is
-  part of why this repo leans on real hardware instead of a forced
-  connector. We haven't tested a dongle-free setup ourselves; if you get
-  one working on NVIDIA, a PR replacing this requirement would be very
-  welcome.
+  stack (via DRM's debugfs `force` file, `vkms`, etc.); on NVIDIA it's
+  less certain, since the kernel driver's KMS/mode-validation logic has
+  historically been its own thing rather than built on the generic DRM
+  helpers that debugfs force-connect relies on. That said, at least one
+  person has reported a fully virtual (dongle-free) EDID override working
+  fine on NVIDIA too, with the caveat that the EDID needs genuine HDR
+  information in it (the CTA extension's HDR Static Metadata Data Block,
+  Colorimetry Data Block, etc.) for HDR to work -- not just a resolution
+  override. That's a meaningfully bigger lift than what `patch-edid.py`
+  does here, which only rewrites DTD1 and otherwise passes through a real
+  plug's existing CTA extension block untouched, HDR blocks included, so
+  it never has to synthesize that data itself. We still haven't tested a
+  dongle-free setup ourselves; if you get one working -- HDR included --
+  a PR replacing this requirement would be very welcome.
 - The [Limine](https://github.com/limine-bootloader/limine) bootloader.
   Other bootloaders aren't automated here -- the installer will tell you
   the one kernel cmdline argument to add by hand.
