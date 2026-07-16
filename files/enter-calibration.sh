@@ -15,5 +15,9 @@ echo "calibrate" > "$HOME/.config/streaming-rig/next-app"
 # and the new one isn't up yet. Waiting a few seconds lets the current
 # launch/stream handshake complete first, so the restart reads as a normal
 # mid-stream interruption instead of a dead connection.
-(sleep 5; pkill gamescope) >/dev/null 2>&1 &
-disown 2>/dev/null || true
+#
+# setsid, not just `&`+disown: Sunshine likely spawns this script in its
+# own process group and cleans up the whole group once it exits, which
+# would kill a merely-backgrounded job before the delay elapses. setsid
+# puts it in a brand new session, immune to that cleanup.
+setsid sh -c 'sleep 5; pkill gamescope' < /dev/null > /dev/null 2>&1 &
