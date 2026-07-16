@@ -7,10 +7,12 @@ running [Moonlight](https://moonlight-stream.org/) gets a native-resolution,
 HDR-capable stream of Steam Big Picture, with no monitor, keyboard, or mouse
 ever attached to the host.
 
-Built and tested on CachyOS (Arch-based) with an NVIDIA RTX 4090 and a
-Samsung Galaxy Tab S9 Ultra (2960x1848) as the client. Should generalize to
-other Arch-based distros and other resolutions; see **Limitations** below
-for what's assumed.
+Built and tested on CachyOS (Arch-based) with an NVIDIA RTX 4090, a
+Samsung Galaxy Tab S9 Ultra (2960x1848) as the client, and
+[this HDMI 2.1 dummy plug](https://a.co/d/08Ff1qnP) (verified against the
+4090 -- this is the "genuine HDMI 2.1-class hardware" referenced in
+Prerequisites below). Should generalize to other Arch-based distros, other
+GPUs, and other resolutions; see **Limitations** below for what's assumed.
 
 ## What this actually does
 
