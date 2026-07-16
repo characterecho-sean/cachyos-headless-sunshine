@@ -1,4 +1,4 @@
-# streaming-rig
+# cachyos-headless-sunshine
 
 Turnkey setup for a headless Linux game-streaming box: a GPU-equipped
 machine with an HDMI dummy plug, running [Sunshine](https://github.com/LizardByte/Sunshine)
