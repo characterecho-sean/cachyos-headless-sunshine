@@ -1,0 +1,51 @@
+#!/bin/bash
+# Edit these before running install.sh. Everything downstream is derived
+# from these values -- nothing else in the repo should need hand-editing.
+
+# ---- Display ----
+# The HDMI output your dummy plug / display is connected to.
+# Find it with: ls /sys/class/drm/ | grep -i hdmi
+HDMI_CONNECTOR="HDMI-A-1"
+
+# Native resolution and refresh rate of your streaming client (phone,
+# tablet, TV, monitor -- whatever Moonlight is running on).
+TARGET_WIDTH=2960
+TARGET_HEIGHT=1848
+TARGET_REFRESH=60
+
+# Physical panel size in millimeters. This isn't cosmetic: some clients
+# (compositors, browsers, Steam's own UI) derive a DPI/scale factor from
+# this, so get it close to your real device's panel size or you'll see
+# unwanted auto-scaling. A quick web search for your device's screen size
+# in inches, converted to mm, is good enough.
+PANEL_WIDTH_MM=316
+PANEL_HEIGHT_MM=197
+
+# Filename the patched EDID will be installed as, under
+# /usr/lib/firmware/edid/. Only matters if you're running this on more
+# than one machine/plug and want to tell the files apart.
+EDID_FIRMWARE_NAME="custom-panel.bin"
+
+# ---- HDR (gamescope inverse tone-mapping) ----
+# gamescope will tone-map SDR game content up to HDR for the physical
+# output. These control how that mapping is done; the defaults are a
+# reasonable starting point. Only relevant if your display supports HDR --
+# leave HDR_ENABLED=false otherwise.
+HDR_ENABLED=true
+HDR_SDR_NITS=100
+HDR_TARGET_NITS=1000
+
+# ---- Sunshine ----
+# The render node Sunshine should use for KMS capture. Usually correct as
+# the first render node; confirm with: ls /dev/dri/
+SUNSHINE_RENDER_NODE="/dev/dri/renderD128"
+
+# Comma-separated origins Sunshine's web UI should accept CSRF requests
+# from -- typically the host's LAN IP and/or mDNS hostname, each with
+# ':47990'. Only needed if you manage Sunshine's config from a browser on
+# another machine.
+SUNSHINE_CSRF_ORIGINS="https://YOUR_HOST_IP:47990,https://YOUR_HOSTNAME.local:47990"
+
+# ---- Session ----
+# The user the streaming session runs as. Defaults to whoever invoked sudo.
+TARGET_USER="${SUDO_USER:-$USER}"
