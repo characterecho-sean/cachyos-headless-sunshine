@@ -43,32 +43,45 @@ if ! pacman-conf --repo-list | grep -qx multilib; then
     fi
 fi
 
-echo "==> Installing gamescope, xorg-cvt, sunshine, and steam"
-pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam
+echo "==> Installing gamescope, xorg-cvt, sunshine, steam, and mangohud"
+pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud
 
-echo "==> Reading current EDID from ${HDMI_CONNECTOR}"
-CARD_PATH=$(find /sys/class/drm -maxdepth 1 -name "card*-${HDMI_CONNECTOR}" | head -n1)
-if [ -z "$CARD_PATH" ]; then
-    echo "Could not find connector ${HDMI_CONNECTOR} under /sys/class/drm." >&2
-    echo "Available connectors:" >&2
-    ls /sys/class/drm | grep -E '^card[0-9]+-' >&2 || true
-    exit 1
-fi
-RAW_EDID="$CARD_PATH/edid"
-if [ ! -s "$RAW_EDID" ]; then
-    echo "No EDID present at $RAW_EDID -- is a display/dummy plug connected?" >&2
-    exit 1
-fi
-cp "$RAW_EDID" /tmp/streaming-rig-raw.edid
-
-echo "==> Patching EDID -> ${TARGET_WIDTH}x${TARGET_HEIGHT}@${TARGET_REFRESH}Hz"
 mkdir -p /usr/lib/firmware/edid
-python3 "$SCRIPT_DIR/scripts/patch-edid.py" \
-    --input /tmp/streaming-rig-raw.edid \
-    --output "/usr/lib/firmware/edid/${EDID_FIRMWARE_NAME}" \
-    --width "$TARGET_WIDTH" --height "$TARGET_HEIGHT" --refresh "$TARGET_REFRESH" \
-    --mm-width "$PANEL_WIDTH_MM" --mm-height "$PANEL_HEIGHT_MM"
-rm -f /tmp/streaming-rig-raw.edid
+if [ "$EDID_MODE" = "synthetic" ]; then
+    echo "==> Building a synthetic EDID -> ${TARGET_WIDTH}x${TARGET_HEIGHT}@${TARGET_REFRESH}Hz"
+    echo "    (no display or dummy plug needed -- this is generated from scratch)"
+    python3 "$SCRIPT_DIR/scripts/build-edid.py" \
+        --output "/usr/lib/firmware/edid/${EDID_FIRMWARE_NAME}" \
+        --width "$TARGET_WIDTH" --height "$TARGET_HEIGHT" --refresh "$TARGET_REFRESH" \
+        --mm-width "$PANEL_WIDTH_MM" --mm-height "$PANEL_HEIGHT_MM" \
+        --product-name "${EDID_PRODUCT_NAME}"
+elif [ "$EDID_MODE" = "real" ]; then
+    echo "==> Reading current EDID from ${HDMI_CONNECTOR}"
+    CARD_PATH=$(find /sys/class/drm -maxdepth 1 -name "card*-${HDMI_CONNECTOR}" | head -n1)
+    if [ -z "$CARD_PATH" ]; then
+        echo "Could not find connector ${HDMI_CONNECTOR} under /sys/class/drm." >&2
+        echo "Available connectors:" >&2
+        ls /sys/class/drm | grep -E '^card[0-9]+-' >&2 || true
+        exit 1
+    fi
+    RAW_EDID="$CARD_PATH/edid"
+    if [ ! -s "$RAW_EDID" ]; then
+        echo "No EDID present at $RAW_EDID -- is a display/dummy plug connected?" >&2
+        exit 1
+    fi
+    cp "$RAW_EDID" /tmp/streaming-rig-raw.edid
+
+    echo "==> Patching EDID -> ${TARGET_WIDTH}x${TARGET_HEIGHT}@${TARGET_REFRESH}Hz"
+    python3 "$SCRIPT_DIR/scripts/patch-edid.py" \
+        --input /tmp/streaming-rig-raw.edid \
+        --output "/usr/lib/firmware/edid/${EDID_FIRMWARE_NAME}" \
+        --width "$TARGET_WIDTH" --height "$TARGET_HEIGHT" --refresh "$TARGET_REFRESH" \
+        --mm-width "$PANEL_WIDTH_MM" --mm-height "$PANEL_HEIGHT_MM"
+    rm -f /tmp/streaming-rig-raw.edid
+else
+    echo "EDID_MODE must be 'synthetic' or 'real', got '${EDID_MODE}'" >&2
+    exit 1
+fi
 
 echo "==> Registering EDID with mkinitcpio"
 if ! grep -q "edid/${EDID_FIRMWARE_NAME}" /etc/mkinitcpio.conf; then
@@ -78,11 +91,23 @@ else
     echo "    already registered, skipping"
 fi
 
-CMDLINE_ARG="drm.edid_firmware=${HDMI_CONNECTOR}:edid/${EDID_FIRMWARE_NAME}"
+# drm.edid_firmware overrides the connector's EDID *content*. In synthetic
+# mode we also add video=...:e, which forces the kernel to treat the
+# connector as connected regardless of hotplug/physical detection -- no
+# display or dummy plug ever needs to be attached. Verified working, HDR
+# included, on an RTX 4090 with the open-source nvidia-open kernel module.
+CMDLINE_ARGS=("drm.edid_firmware=${HDMI_CONNECTOR}:edid/${EDID_FIRMWARE_NAME}")
+if [ "$EDID_MODE" = "synthetic" ]; then
+    CMDLINE_ARGS+=("video=${HDMI_CONNECTOR}:e")
+fi
 if [ -f /etc/default/limine ]; then
-    echo "==> Adding kernel cmdline (Limine): ${CMDLINE_ARG}"
-    if ! grep -q -- "$CMDLINE_ARG" /etc/default/limine; then
-        sed -i -E "/^KERNEL_CMDLINE\[default\]/ s/\"\$/ ${CMDLINE_ARG}\"/" /etc/default/limine
+    echo "==> Adding kernel cmdline (Limine): ${CMDLINE_ARGS[*]}"
+    NEW_ARGS=""
+    for arg in "${CMDLINE_ARGS[@]}"; do
+        grep -q -- "$arg" /etc/default/limine || NEW_ARGS="${NEW_ARGS} ${arg}"
+    done
+    if [ -n "$NEW_ARGS" ]; then
+        sed -i -E "/^KERNEL_CMDLINE\[default\]/ s|\"\$|${NEW_ARGS}\"|" /etc/default/limine
         limine-update
     else
         echo "    already present, skipping"
@@ -91,7 +116,7 @@ else
     echo "==> WARNING: /etc/default/limine not found." >&2
     echo "    This repo only automates the Limine bootloader. Add the following to" >&2
     echo "    your bootloader's kernel command line yourself, then reboot:" >&2
-    echo "        ${CMDLINE_ARG}" >&2
+    echo "        ${CMDLINE_ARGS[*]}" >&2
 fi
 
 echo "==> Granting scheduling capability to gamescope (frame pacing for composited content)"
@@ -152,6 +177,11 @@ if [ "$HDR_ENABLED" = "true" ]; then
     HDR_FLAGS="--hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits ${HDR_SDR_NITS} --hdr-itm-target-nits ${HDR_TARGET_NITS} "
 fi
 
+MANGOHUD_FLAGS=""
+if [ "$MANGOHUD_ENABLED" = "true" ]; then
+    MANGOHUD_FLAGS="--mangoapp "
+fi
+
 ZPROFILE="$TARGET_HOME/.zprofile"
 MARKER="# >>> streaming-rig gamescope session >>>"
 END_MARKER="# <<< streaming-rig gamescope session <<<"
@@ -164,7 +194,7 @@ if [ -z "\$DISPLAY" ] && [ -z "\$WAYLAND_DISPLAY" ] && [ "\$(tty)" = "/dev/tty1"
     exec gamescope --backend drm -O ${HDMI_CONNECTOR} \\
         -W ${TARGET_WIDTH} -H ${TARGET_HEIGHT} -w ${TARGET_WIDTH} -h ${TARGET_HEIGHT} -r ${TARGET_REFRESH} \\
         --generate-drm-mode fixed \\
-        ${HDR_FLAGS}-e \\
+        ${HDR_FLAGS}${MANGOHUD_FLAGS}-e \\
         -- "\$HOME/.config/gamescope-session.sh" \\
         > "\$HOME/.local/share/gamescope-session.log" 2>&1
 fi
@@ -185,4 +215,11 @@ chown -R "$TARGET_USER":"$TARGET_USER" \
 
 echo
 echo "==> Done."
+if [ "$EDID_MODE" = "synthetic" ]; then
+    echo "No display or dummy plug is needed on ${HDMI_CONNECTOR} at any point -- the"
+    echo "connector is forced 'connected' via the kernel cmdline regardless."
+else
+    echo "Keep the dummy plug connected to ${HDMI_CONNECTOR} -- EDID_MODE=real relies on"
+    echo "real hotplug detection, unlike EDID_MODE=synthetic."
+fi
 echo "Reboot to start streaming automatically on tty1 (autologin required -- see README)."

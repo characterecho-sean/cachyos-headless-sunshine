@@ -1,18 +1,17 @@
 # cachyos-headless-sunshine
 
 Turnkey setup for a headless Linux game-streaming box: a GPU-equipped
-machine with an HDMI dummy plug, running [Sunshine](https://github.com/LizardByte/Sunshine)
-+ [gamescope](https://github.com/ValveSoftware/gamescope) so a phone/tablet/TV
+machine with **no display or dummy plug attached at all**, running
+[Sunshine](https://github.com/LizardByte/Sunshine) +
+[gamescope](https://github.com/ValveSoftware/gamescope) so a phone/tablet/TV
 running [Moonlight](https://moonlight-stream.org/) gets a native-resolution,
 HDR-capable stream of Steam Big Picture, with no monitor, keyboard, or mouse
 ever attached to the host.
 
-Built and tested on CachyOS (Arch-based) with an NVIDIA RTX 4090, a
-Samsung Galaxy Tab S9 Ultra (2960x1848) as the client, and
-[this HDMI 2.1 dummy plug](https://a.co/d/08Ff1qnP) (verified against the
-4090 -- this is the "genuine HDMI 2.1-class hardware" referenced in
-Prerequisites below). Should generalize to other Arch-based distros, other
-GPUs, and other resolutions; see **Limitations** below for what's assumed.
+Built and tested on CachyOS (Arch-based) with an NVIDIA RTX 4090 and a
+Samsung Galaxy Tab S9 Ultra (2960x1848) as the client. Should generalize to
+other Arch-based distros, other GPUs, and other resolutions; see
+**Limitations** below for what's assumed.
 
 ## What this actually does
 
@@ -22,13 +21,18 @@ resolution. Left alone, you'd stream at some fallback resolution and the
 client would have to scale it, or you'd fight the driver into a custom
 resolution every boot. This repo:
 
-1. **Patches the dummy plug's real EDID** to declare your device's native
-   resolution as its preferred timing, computed with the standard `cvt -r`
-   (CVT reduced-blanking) utility -- not a synthetic/invented mode, a
-   legitimate one, while leaving the plug's genuine HDMI/HDR capability
-   blocks untouched. Loaded via `drm.edid_firmware=` at boot, so the
-   kernel and every userspace consumer see the correct native mode from
-   the start.
+1. **Builds a synthetic EDID from scratch** (`EDID_MODE=synthetic`, the
+   default -- see Prerequisites) declaring your device's native resolution
+   as its preferred timing, computed with the standard `cvt -r` (CVT
+   reduced-blanking) utility, plus HDR10 (ST2084 PQ + HLG) and BT.2020
+   capability. Loaded via `drm.edid_firmware=` at boot, combined with
+   `video=<connector>:e` to force the kernel to treat the connector as
+   connected regardless of hotplug/physical detection -- no display or
+   dummy plug is ever involved, at setup time or afterward. If this
+   doesn't work on your hardware/compositor combination, `EDID_MODE=real`
+   falls back to patching a real HDMI 2.1/HDR dummy plug's own EDID
+   instead (preserving its genuine capability blocks rather than
+   synthesizing them) -- see Prerequisites for when you'd want that.
 2. **Installs and configures gamescope** as the display compositor,
    running headless via its DRM backend, pinned to your native
    resolution/refresh, with `--hdr-itm-enabled` so SDR content (which is
@@ -43,6 +47,12 @@ resolution every boot. This repo:
 4. **Autostarts the whole thing** on an autologin console (tty1), with
    gamescope launching Sunshine and Steam Big Picture as its own children
    so they inherit the right Wayland socket.
+5. **Enables a MangoHud performance overlay** via gamescope's own
+   `--mangoapp` flag (its recommended way to run MangoHud, rather than
+   enabling it on the game or gamescope separately), so you can check
+   real in-game frame times/FPS while streaming. Toggle in gamescope's
+   Quick Access Menu; set `MANGOHUD_ENABLED=false` in `config.sh` to skip
+   it entirely.
 
 ## Prerequisites
 
@@ -62,35 +72,29 @@ resolution every boot. This repo:
   in CachyOS's own repos, no AUR required. Other Arch-based distros should
   work in principle, but CachyOS is what this has actually been run on, and
   package availability/naming may differ elsewhere.
-- NVIDIA GPU. This has only been tested with NVIDIA's driver stack; AMD/Intel
-  should work for gamescope in general but the capture-backend behavior
-  hasn't been verified here.
-- An HDMI dummy plug that's **genuine HDMI 2.1-class hardware** with a real
-  timing generator -- not a bare-minimum EDID-only plug. Cheap non-HDR dummy
-  plugs are usually fine for standard resolutions, but tend to judder badly
-  on a custom/non-standard timing, and won't declare HDR capability at all.
-  Look for one explicitly advertised as HDMI 2.1 / 4K / HDR.
-
-  A physical dongle may not strictly be necessary -- `drm.edid_firmware=`
-  overrides a connector's EDID *content*, but on its own doesn't
-  necessarily make the kernel treat that connector as physically
-  connected, which is generally what's needed for a mode to actually be
-  used. Forcing a connector "on" with nothing plugged in at all (a fully
-  virtual monitor) is well supported on the open-source AMD/Intel KMS
-  stack (via DRM's debugfs `force` file, `vkms`, etc.); on NVIDIA it's
-  less certain, since the kernel driver's KMS/mode-validation logic has
-  historically been its own thing rather than built on the generic DRM
-  helpers that debugfs force-connect relies on. That said, at least one
-  person has reported a fully virtual (dongle-free) EDID override working
-  fine on NVIDIA too, with the caveat that the EDID needs genuine HDR
-  information in it (the CTA extension's HDR Static Metadata Data Block,
-  Colorimetry Data Block, etc.) for HDR to work -- not just a resolution
-  override. That's a meaningfully bigger lift than what `patch-edid.py`
-  does here, which only rewrites DTD1 and otherwise passes through a real
-  plug's existing CTA extension block untouched, HDR blocks included, so
-  it never has to synthesize that data itself. We still haven't tested a
-  dongle-free setup ourselves; if you get one working -- HDR included --
-  a PR replacing this requirement would be very welcome.
+- NVIDIA GPU with the open-source `nvidia-open` kernel module. `EDID_MODE=synthetic`
+  (the default, no hardware at all) is verified end-to-end -- including
+  HDR in an actual game -- on an RTX 4090 with `nvidia-open` and gamescope
+  specifically. It relies on the kernel driver implementing the standard
+  DRM debugfs `force`/`edid_override` connector interface, which
+  `nvidia-open` does; this has **not** been tested on AMD/Intel, on
+  NVIDIA's older/fully-closed driver branch, or under a different
+  compositor (KDE/GNOME Wayland) -- gamescope was Valve's own compositor,
+  reasonably likely to get first-class support here, but that's an
+  assumption, not something we've confirmed elsewhere. If `EDID_MODE=synthetic`
+  doesn't bring up a connector on your setup, switch to `EDID_MODE=real`
+  (below).
+- **Only if using `EDID_MODE=real`**: an HDMI dummy plug that's **genuine
+  HDMI 2.1-class hardware** with a real timing generator -- not a
+  bare-minimum EDID-only plug. Cheap non-HDR dummy plugs are usually fine
+  for standard resolutions, but tend to judder badly on a
+  custom/non-standard timing, and won't declare HDR capability at all.
+  Look for one explicitly advertised as HDMI 2.1 / 4K / HDR --
+  [this one](https://a.co/d/08Ff1qnP) is what we used and verified against
+  the 4090 before switching to `EDID_MODE=synthetic`. Needs to be
+  connected to `HDMI_CONNECTOR` when you run `install.sh` (unlike
+  `synthetic` mode, `real` mode relies on genuine hotplug detection, so it
+  needs to stay connected afterward too).
 - The [Limine](https://github.com/limine-bootloader/limine) bootloader.
   Other bootloaders aren't automated here -- the installer will tell you
   the one kernel cmdline argument to add by hand.
@@ -103,13 +107,15 @@ resolution every boot. This repo:
 
 ## Usage
 
-1. Plug in your HDMI dummy plug and confirm the connector name:
+1. Confirm your HDMI connector's name (nothing needs to be plugged into it
+   for `EDID_MODE=synthetic`; for `EDID_MODE=real`, plug your dummy plug in
+   first):
    ```
    ls /sys/class/drm/ | grep -i hdmi
    ```
 2. Edit `config.sh` -- at minimum set `HDMI_CONNECTOR`, `TARGET_WIDTH`,
    `TARGET_HEIGHT`, `TARGET_REFRESH`, and `PANEL_WIDTH_MM`/`PANEL_HEIGHT_MM`
-   to match your streaming client.
+   to match your streaming client, and `EDID_MODE` per Prerequisites above.
 3. Run it:
    ```
    sudo ./install.sh
@@ -132,8 +138,14 @@ duplicating them.
   Moonlight client requests per session. If you stream to multiple
   devices with different native resolutions, you'll want to either pick
   the highest common resolution or extend `install.sh` yourself.
-- **Single output**: assumes exactly one HDMI dummy plug / connector is in
-  play.
+- **Single output**: assumes exactly one HDMI connector is in play.
+- **`EDID_MODE=synthetic` portability**: verified end-to-end on an RTX
+  4090 with `nvidia-open` and gamescope. It should generalize -- the
+  mechanism (DRM debugfs `force`/`edid_override`) is a generic kernel
+  interface, not gamescope- or NVIDIA-specific -- but that's untested here
+  on AMD/Intel or under KDE/GNOME Wayland. If it doesn't come up on your
+  setup, `EDID_MODE=real` with a genuine HDMI 2.1/HDR dummy plug is the
+  fallback.
 - **Package installation**: assumes CachyOS's repos, where `sunshine` and
   `steam` are plain `pacman` packages. On a distro where either comes from
   the AUR, Flatpak, or somewhere else, install them yourself first and the

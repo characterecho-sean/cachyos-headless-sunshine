@@ -3,9 +3,24 @@
 # from these values -- nothing else in the repo should need hand-editing.
 
 # ---- Display ----
-# The HDMI output your dummy plug / display is connected to.
-# Find it with: ls /sys/class/drm/ | grep -i hdmi
+# The HDMI output to use. Find the connector name with:
+# ls /sys/class/drm/ | grep -i hdmi
 HDMI_CONNECTOR="HDMI-A-1"
+
+# "synthetic" (recommended, default): builds an EDID from scratch, no
+# display or dummy plug needed at any point, ever -- the connector is
+# forced "connected" via a kernel parameter. Verified end-to-end (HDR
+# included) on an RTX 4090 with the open-source nvidia-open kernel module
+# and gamescope. Untested on AMD/Intel or other compositors (KDE/GNOME
+# Wayland) -- if it doesn't work for you there, switch to "real" below.
+#
+# "real": patches a genuinely connected HDMI dummy plug's own EDID instead
+# (preserving its real HDMI/HDR capability blocks rather than synthesizing
+# them), the more conservative option if you have suitable hardware handy.
+# Needs a real HDMI 2.1/HDR-capable dummy plug connected to HDMI_CONNECTOR
+# when you run install.sh -- see README for why a basic/non-HDR plug won't
+# do.
+EDID_MODE="synthetic"
 
 # Native resolution and refresh rate of your streaming client (phone,
 # tablet, TV, monitor -- whatever Moonlight is running on).
@@ -21,10 +36,14 @@ TARGET_REFRESH=60
 PANEL_WIDTH_MM=316
 PANEL_HEIGHT_MM=197
 
-# Filename the patched EDID will be installed as, under
+# Filename the generated/patched EDID will be installed as, under
 # /usr/lib/firmware/edid/. Only matters if you're running this on more
-# than one machine/plug and want to tell the files apart.
+# than one machine and want to tell the files apart.
 EDID_FIRMWARE_NAME="custom-panel.bin"
+
+# Cosmetic only (EDID_MODE=synthetic) -- shows up as the "monitor name" in
+# OS display settings.
+EDID_PRODUCT_NAME="Virtual HDMI"
 
 # ---- HDR (gamescope inverse tone-mapping) ----
 # gamescope will tone-map SDR game content up to HDR for the physical
@@ -34,6 +53,12 @@ EDID_FIRMWARE_NAME="custom-panel.bin"
 HDR_ENABLED=true
 HDR_SDR_NITS=100
 HDR_TARGET_NITS=1000
+
+# ---- Performance overlay ----
+# gamescope's own --mangoapp flag launches the MangoHud overlay for you
+# (use this instead of enabling MangoHud on the game or via gamescope
+# separately). Toggle in-session via gamescope's Quick Access Menu.
+MANGOHUD_ENABLED=true
 
 # ---- Sunshine ----
 # The render node Sunshine should use for KMS capture. Usually correct as
