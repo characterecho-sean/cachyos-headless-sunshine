@@ -77,11 +77,17 @@ resolution every boot. This repo:
   connected, which is generally what's needed for a mode to actually be
   used. Forcing a connector "on" with nothing plugged in at all (a fully
   virtual monitor) is well supported on the open-source AMD/Intel KMS
-  stack (via DRM's debugfs `force` file, `vkms`, etc.), but has
-  historically been inconsistent on NVIDIA's proprietary driver -- which
-  is part of why this repo leans on real hardware instead. We haven't
-  tested a dongle-free setup ourselves; if you get one working on NVIDIA,
-  a PR replacing this requirement would be very welcome.
+  stack (via DRM's debugfs `force` file, `vkms`, etc.). NVIDIA's kernel
+  driver has an open-source module option now (`nvidia-open`, dual
+  MIT/GPL, which is what this repo assumes), but its KMS/mode-validation
+  logic has historically been its own thing rather than built on the
+  generic DRM helpers that debugfs force-connect relies on, and the
+  userspace side it pairs with -- the X11 driver, GLX/EGL/Vulkan
+  libraries, NVENC/NVFBC -- is still closed-source. That combination is
+  part of why this repo leans on real hardware instead of a forced
+  connector. We haven't tested a dongle-free setup ourselves; if you get
+  one working on NVIDIA, a PR replacing this requirement would be very
+  welcome.
 - The [Limine](https://github.com/limine-bootloader/limine) bootloader.
   Other bootloaders aren't automated here -- the installer will tell you
   the one kernel cmdline argument to add by hand.
