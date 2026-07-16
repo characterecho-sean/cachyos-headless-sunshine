@@ -145,7 +145,14 @@ set_conf_value "csrf_allowed_origins" "$SUNSHINE_CSRF_ORIGINS"
 set_conf_value "capture" "kms"
 set_conf_value "adapter_name" "$SUNSHINE_RENDER_NODE"
 
-cp "$SCRIPT_DIR/files/apps.json" "$TARGET_HOME/.config/sunshine/apps.json"
+mkdir -p "$TARGET_HOME/.config/sunshine/covers"
+cp "$SCRIPT_DIR/files/hdr-calibrate-icon.png" "$TARGET_HOME/.config/sunshine/covers/hdr-calibrate.png"
+
+# Sunshine does not expand shell variables in apps.json (prep-cmd/image-path
+# run/resolve directly, not through a shell) -- substitute the real absolute
+# path in ourselves rather than leaving a $HOME that will just fail to
+# resolve at runtime.
+sed "s|__TARGET_HOME__|${TARGET_HOME}|g" "$SCRIPT_DIR/files/apps.json" > "$TARGET_HOME/.config/sunshine/apps.json"
 
 echo "==> Enabling GPU-accelerated Big Picture rendering in Steam"
 STEAM_REGISTRY="$TARGET_HOME/.steam/registry.vdf"

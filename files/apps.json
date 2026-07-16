@@ -5,12 +5,12 @@
             "name": "Steam"
         },
         {
-            "image-path": "desktop-alt.png",
+            "image-path": "__TARGET_HOME__/.config/sunshine/covers/hdr-calibrate.png",
             "name": "Calibrate HDR",
             "prep-cmd": [
                 {
-                    "do": "$HOME/.config/streaming-rig/enter-calibration.sh",
-                    "undo": "$HOME/.config/streaming-rig/exit-calibration.sh"
+                    "do": "__TARGET_HOME__/.config/streaming-rig/enter-calibration.sh",
+                    "undo": "__TARGET_HOME__/.config/streaming-rig/exit-calibration.sh"
                 }
             ]
         }
