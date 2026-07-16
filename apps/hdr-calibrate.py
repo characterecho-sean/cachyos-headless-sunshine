@@ -11,7 +11,8 @@ at the actual result on your real display. Not a live-dragging slider --
 a tight adjust/restart/look loop instead.
 
 Touch is handled as ordinary mouse clicks (Sunshine/Moonlight forward it
-that way). Gamepad uses SDL2's joystick API via pygame.
+that way). Gamepad uses SDL2's GameController API (named buttons/axes,
+consistent across controllers) via pygame.controller.
 """
 import os
 import pygame
@@ -79,9 +80,18 @@ def main():
     os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
     pygame.init()
     pygame.joystick.init()
-    controllers = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
-    for c in controllers:
-        c.init()
+    # Some of Sunshine's other virtual input devices (touch/pen/mouse
+    # passthrough) can enumerate here alongside the real gamepad without
+    # actually being openable as a joystick -- skip whichever ones fail
+    # rather than letting one bad device crash the whole app.
+    controllers = []
+    for i in range(pygame.joystick.get_count()):
+        try:
+            c = pygame.joystick.Joystick(i)
+            c.init()
+            controllers.append(c)
+        except pygame.error:
+            pass
 
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.display.set_caption("HDR Calibration")
@@ -115,9 +125,9 @@ def main():
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(SELECTOR, "w") as f:
             f.write("calibrate\n")
-        # Substring match, not exact: the running process is actually named
-        # "gamescope-wl" once its compositor loop is up, not "gamescope".
-        os.system("pkill gamescope")
+        # The persistent watcher started by gamescope-session.sh notices
+        # this file and handles the actual delayed restart -- we don't
+        # kill gamescope directly here.
 
     def exit_to_steam():
         raise SystemExit
