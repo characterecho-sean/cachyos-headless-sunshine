@@ -1,21 +1,8 @@
 {
     "apps": [
         {
-            "image-path": "desktop.png",
-            "name": "Desktop"
-        },
-        {
-            "detached": [
-                "setsid steam steam://open/bigpicture"
-            ],
             "image-path": "steam.png",
-            "name": "Steam Big Picture",
-            "prep-cmd": [
-                {
-                    "do": "",
-                    "undo": "setsid steam steam://close/bigpicture"
-                }
-            ]
+            "name": "Steam"
         }
     ],
     "env": {
