@@ -115,7 +115,9 @@ def main():
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(SELECTOR, "w") as f:
             f.write("calibrate\n")
-        os.system("pkill -u \"$USER\" -x gamescope")
+        # Substring match, not exact: the running process is actually named
+        # "gamescope-wl" once its compositor loop is up, not "gamescope".
+        os.system("pkill gamescope")
 
     def exit_to_steam():
         raise SystemExit
