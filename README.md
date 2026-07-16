@@ -46,8 +46,20 @@ resolution every boot. This repo:
 
 ## Prerequisites
 
+- **A fresh, headless [CachyOS](https://cachyos.org/) install is strongly
+  recommended** -- specifically one of CachyOS's minimal/no-desktop
+  install options, without a display manager (GDM/SDDM/lightdm) or desktop
+  environment installed. This setup takes over tty1 via autologin +
+  `.zprofile` to launch gamescope directly; a display manager will fight
+  it for that console, and an existing desktop environment brings its own
+  compositor, session files, and package conflicts that this repo isn't
+  designed to coexist with. Bringing your own already-configured desktop
+  machine to this is likely to cause exactly the kind of hard-to-debug
+  conflicts this repo is meant to avoid.
 - Arch-based distro with `pacman` (only `gamescope` itself is installed by
-  the script; everything else below you install yourself first).
+  the script; everything else below you install yourself first). Other
+  Arch-based distros should work in principle, but CachyOS is what this has
+  actually been run on.
 - NVIDIA GPU. This has only been tested with NVIDIA's driver stack; AMD/Intel
   should work for gamescope in general but the capture-backend behavior
   hasn't been verified here.
