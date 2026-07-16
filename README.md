@@ -107,20 +107,23 @@ resolution every boot. This repo:
 
 ## Usage
 
-1. Confirm your HDMI connector's name (nothing needs to be plugged into it
-   for `EDID_MODE=synthetic`; for `EDID_MODE=real`, plug your dummy plug in
-   first):
+1. Find your HDMI connector's name -- this works whether or not anything
+   is plugged in, since connectors are always listed, just marked
+   disconnected when empty:
    ```
    ls /sys/class/drm/ | grep -i hdmi
    ```
-2. Edit `config.sh` -- at minimum set `HDMI_CONNECTOR`, `TARGET_WIDTH`,
-   `TARGET_HEIGHT`, `TARGET_REFRESH`, and `PANEL_WIDTH_MM`/`PANEL_HEIGHT_MM`
-   to match your streaming client, and `EDID_MODE` per Prerequisites above.
-3. Run it:
+2. Decide `EDID_MODE` (see Prerequisites above): `synthetic` (default, no
+   hardware needed) or `real` (needs a genuine HDMI 2.1/HDR dummy plug).
+   If you're using `real`, plug it into the connector from step 1 now.
+3. Edit `config.sh`: set `HDMI_CONNECTOR` to the name from step 1,
+   `EDID_MODE` from step 2, and `TARGET_WIDTH`/`TARGET_HEIGHT`/`TARGET_REFRESH`/
+   `PANEL_WIDTH_MM`/`PANEL_HEIGHT_MM` to match your streaming client.
+4. Run it:
    ```
    sudo ./install.sh
    ```
-4. Reboot. The console should come up in gamescope with Steam Big Picture
+5. Reboot. The console should come up in gamescope with Steam Big Picture
    running, and Sunshine should be reachable/pairable from Moonlight
    immediately.
 
