@@ -70,6 +70,18 @@ resolution every boot. This repo:
   plugs are usually fine for standard resolutions, but tend to judder badly
   on a custom/non-standard timing, and won't declare HDR capability at all.
   Look for one explicitly advertised as HDMI 2.1 / 4K / HDR.
+
+  A physical dongle may not strictly be necessary -- `drm.edid_firmware=`
+  overrides a connector's EDID *content*, but on its own doesn't
+  necessarily make the kernel treat that connector as physically
+  connected, which is generally what's needed for a mode to actually be
+  used. Forcing a connector "on" with nothing plugged in at all (a fully
+  virtual monitor) is well supported on the open-source AMD/Intel KMS
+  stack (via DRM's debugfs `force` file, `vkms`, etc.), but has
+  historically been inconsistent on NVIDIA's proprietary driver -- which
+  is part of why this repo leans on real hardware instead. We haven't
+  tested a dongle-free setup ourselves; if you get one working on NVIDIA,
+  a PR replacing this requirement would be very welcome.
 - The [Limine](https://github.com/limine-bootloader/limine) bootloader.
   Other bootloaders aren't automated here -- the installer will tell you
   the one kernel cmdline argument to add by hand.
