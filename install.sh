@@ -43,8 +43,8 @@ if ! pacman-conf --repo-list | grep -qx multilib; then
     fi
 fi
 
-echo "==> Installing gamescope, xorg-cvt, sunshine, steam, mangohud, and python-pygame"
-pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud python-pygame
+echo "==> Installing gamescope, xorg-cvt, sunshine, steam, mangohud, python-pygame, python-pillow, ttf-dejavu"
+pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud python-pygame python-pillow ttf-dejavu
 
 mkdir -p /usr/lib/firmware/edid
 if [ "$EDID_MODE" = "synthetic" ]; then
@@ -122,6 +122,18 @@ fi
 echo "==> Granting scheduling capability to gamescope (frame pacing for composited content)"
 setcap 'cap_sys_nice=eip' /usr/bin/gamescope
 
+echo "==> Adding ${TARGET_USER} to the 'input' group"
+# Sunshine's packaged udev rules (60-sunshine.rules) only grant uaccess to
+# gamepad-named virtual devices (Xbox/PS5/Nintendo pad) -- its generic
+# "Mouse passthrough"/"Touch passthrough"/"Keyboard passthrough" devices
+# have no matching rule, so they stay root:input mode 0660 with no ACL.
+# Without this, gamescope (running as TARGET_USER) can't open those
+# devices at all: gamepad input works, but mouse/touch/keyboard silently
+# don't. Group membership is set at login time, so this needs a fresh
+# login (a reboot, per the final step below, is the simplest way) to take
+# effect -- restarting gamescope/Sunshine alone won't pick it up.
+usermod -aG input "$TARGET_USER"
+
 echo "==> Merging Sunshine config"
 mkdir -p "$TARGET_HOME/.config/sunshine"
 SUNSHINE_CONF="$TARGET_HOME/.config/sunshine/sunshine.conf"
@@ -145,14 +157,7 @@ set_conf_value "csrf_allowed_origins" "$SUNSHINE_CSRF_ORIGINS"
 set_conf_value "capture" "kms"
 set_conf_value "adapter_name" "$SUNSHINE_RENDER_NODE"
 
-mkdir -p "$TARGET_HOME/.config/sunshine/covers"
-cp "$SCRIPT_DIR/files/hdr-calibrate-icon.png" "$TARGET_HOME/.config/sunshine/covers/hdr-calibrate.png"
-
-# Sunshine does not expand shell variables in apps.json (prep-cmd/image-path
-# run/resolve directly, not through a shell) -- substitute the real absolute
-# path in ourselves rather than leaving a $HOME that will just fail to
-# resolve at runtime.
-sed "s|__TARGET_HOME__|${TARGET_HOME}|g" "$SCRIPT_DIR/files/apps.json" > "$TARGET_HOME/.config/sunshine/apps.json"
+cp "$SCRIPT_DIR/files/apps.json" "$TARGET_HOME/.config/sunshine/apps.json"
 
 echo "==> Enabling GPU-accelerated Big Picture rendering in Steam"
 STEAM_REGISTRY="$TARGET_HOME/.steam/registry.vdf"
@@ -178,24 +183,25 @@ echo "==> Installing gamescope session script"
 cp "$SCRIPT_DIR/files/gamescope-session.sh" "$TARGET_HOME/.config/gamescope-session.sh"
 chmod +x "$TARGET_HOME/.config/gamescope-session.sh"
 
-echo "==> Installing the HDR calibration tool (Sunshine app: Calibrate HDR)"
+echo "==> Installing the HDR calibration tool (Steam library: HDR Calibrate)"
 STREAMING_RIG_DIR="$TARGET_HOME/.config/streaming-rig"
 mkdir -p "$STREAMING_RIG_DIR"
 cp "$SCRIPT_DIR/apps/hdr-calibrate.py" "$STREAMING_RIG_DIR/hdr-calibrate.py"
 cp "$SCRIPT_DIR/files/streaming-session.sh" "$STREAMING_RIG_DIR/streaming-session.sh"
-cp "$SCRIPT_DIR/files/calibration-session.sh" "$STREAMING_RIG_DIR/calibration-session.sh"
-cp "$SCRIPT_DIR/files/enter-calibration.sh" "$STREAMING_RIG_DIR/enter-calibration.sh"
-cp "$SCRIPT_DIR/files/exit-calibration.sh" "$STREAMING_RIG_DIR/exit-calibration.sh"
+cp "$SCRIPT_DIR/files/hdr-calibrate-launch.sh" "$STREAMING_RIG_DIR/hdr-calibrate-launch.sh"
 chmod +x "$STREAMING_RIG_DIR/hdr-calibrate.py" "$STREAMING_RIG_DIR/streaming-session.sh" \
-    "$STREAMING_RIG_DIR/calibration-session.sh" "$STREAMING_RIG_DIR/enter-calibration.sh" \
-    "$STREAMING_RIG_DIR/exit-calibration.sh"
+    "$STREAMING_RIG_DIR/hdr-calibrate-launch.sh"
 
-# Persistent (not one-shot) mode flag: gamescope-session.sh reads this once
-# at each launch to decide whether to run the normal streaming session or
-# the calibration one. Only set a default if missing, so re-running
-# install.sh doesn't boot you out of whichever mode you're actually in.
-MODE_FILE="$STREAMING_RIG_DIR/mode"
-[ -f "$MODE_FILE" ] || echo steam > "$MODE_FILE"
+echo "==> Registering the HDR Calibrate Steam shortcut and library artwork"
+# Run as TARGET_USER (not root, even though this whole script is) so any
+# files written under ~/.local/share/Steam/userdata/ come out owned by the
+# same user Steam itself runs as, rather than needing a chown fixup here.
+sudo -u "$TARGET_USER" python3 "$SCRIPT_DIR/scripts/setup-hdr-calibrate-shortcut.py" \
+    --target-home "$TARGET_HOME" \
+    --launch-script "$STREAMING_RIG_DIR/hdr-calibrate-launch.sh" \
+    --start-dir "$STREAMING_RIG_DIR" \
+    --appid-file "$STREAMING_RIG_DIR/hdr-calibrate-appid" \
+    --gameid-file "$STREAMING_RIG_DIR/hdr-calibrate-gameid"
 
 HDR_CONF="$STREAMING_RIG_DIR/hdr.conf"
 if [ ! -f "$HDR_CONF" ]; then
@@ -227,15 +233,16 @@ if ! grep -qF "$MARKER" "$ZPROFILE"; then
 
 ${MARKER}
 if [ -z "\$DISPLAY" ] && [ -z "\$WAYLAND_DISPLAY" ] && [ "\$(tty)" = "/dev/tty1" ]; then
-    # SDR_NITS/TARGET_NITS default here, but the "Calibrate HDR" Sunshine app
-    # can override them at runtime via this file without re-running install.sh.
+    # SDR_NITS/TARGET_NITS default here, but the HDR Calibrate tool (a Steam
+    # non-Steam-game shortcut) can override them at runtime via this file
+    # without re-running install.sh.
     SDR_NITS=${HDR_SDR_NITS}
     TARGET_NITS=${HDR_TARGET_NITS}
     [ -f "\$HOME/.config/streaming-rig/hdr.conf" ] && . "\$HOME/.config/streaming-rig/hdr.conf"
     exec gamescope --backend drm -O ${HDMI_CONNECTOR} \\
         -W ${TARGET_WIDTH} -H ${TARGET_HEIGHT} -w ${TARGET_WIDTH} -h ${TARGET_HEIGHT} -r ${TARGET_REFRESH} \\
         --generate-drm-mode fixed \\
-        ${HDR_FLAGS}${MANGOHUD_FLAGS}-e \\
+        ${HDR_FLAGS}${MANGOHUD_FLAGS}--default-touch-mode 1 -e \\
         -- "\$HOME/.config/gamescope-session.sh" \\
         > "\$HOME/.local/share/gamescope-session.log" 2>&1
 fi
@@ -274,3 +281,6 @@ else
     echo "real hotplug detection, unlike EDID_MODE=synthetic."
 fi
 echo "Reboot to start streaming automatically on tty1 (autologin required -- see README)."
+echo "A reboot is also required for the 'input' group membership (mouse/touch/keyboard"
+echo "passthrough) to take effect -- it's set at login time, so just restarting"
+echo "gamescope/Sunshine won't pick it up."

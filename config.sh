@@ -51,10 +51,10 @@ EDID_PRODUCT_NAME="Virtual HDMI"
 # HDR_ENABLED=false otherwise.
 #
 # HDR_SDR_NITS/HDR_TARGET_NITS are only the *initial* values, written to
-# ~/.config/streaming-rig/hdr.conf on first install. After that, use the
-# "Calibrate HDR" app in Sunshine to tune them interactively against your
-# actual display -- it edits that file directly, and re-running
-# install.sh won't overwrite your tuned values.
+# ~/.config/streaming-rig/hdr.conf on first install. After that, launch
+# "HDR Calibrate" from your Steam library to tune them interactively
+# against your actual display -- it edits that file directly, and
+# re-running install.sh won't overwrite your tuned values.
 HDR_ENABLED=true
 HDR_SDR_NITS=100
 HDR_TARGET_NITS=1000

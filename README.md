@@ -62,33 +62,73 @@ resolution every boot. This repo:
    power option, which `install.sh` masks at the systemd level (see
    Prerequisites/below) since a stray button press suspending a headless
    streaming box is a real, observed failure mode, not a hypothetical one.
-6. **Installs an interactive HDR calibration tool**, selectable as its own
-   "Calibrate HDR" app from Sunshine/Moonlight, so you can tune the
-   inverse-tone-mapping curve against your actual display instead of
-   guessing at numbers in `config.sh`. See **Calibrating HDR** below.
+6. **Installs an interactive HDR calibration tool**, registered as an
+   "HDR Calibrate" entry in your Steam library (with matching cover
+   art/banner), so you can tune the inverse-tone-mapping curve against
+   your actual display instead of guessing at numbers in `config.sh`. See
+   **Calibrating HDR** below.
 
 ## Calibrating HDR
 
 gamescope has no live control for its SDR->HDR inverse-tone-mapping curve
 (`--hdr-itm-sdr-nits`/`--hdr-itm-target-nits` are startup-only flags), so
-this isn't a live-dragging slider -- it's an adjust-and-restart loop:
+this isn't a live-dragging slider -- it's an adjust-and-restart loop.
 
-1. From Moonlight, launch "Calibrate HDR" instead of "Steam". This restarts
-   the session (a brief stream interruption, expected) into a fullscreen
-   tool showing a grayscale test pattern and the current SDR white
-   level / HDR peak brightness values.
-2. Adjust the values (touch, or a controller's D-pad to move focus + A to
-   select), then hit **Apply & Preview**. This writes
-   `~/.config/streaming-rig/hdr.conf` and restarts the session again, so
-   you're looking at the *actual* result on your real display, not a
-   preview.
-3. Repeat until it looks right, then hit **Exit** to return to the normal
+**Accessing it**: the tool is registered as an **"HDR Calibrate"** entry in
+your Steam library (a non-Steam game shortcut, with its own cover art) --
+not a separate Sunshine app. From Steam Big Picture (which is what you land
+in over Moonlight), find and launch it like any other game. It runs as a
+genuine Steam-launched game specifically so gamescope's session compositor
+composites/focuses it correctly -- gamescope's `steamcompmgr` only treats a
+window as focusable once Steam's own IPC has done the handoff for it; a
+window just running in the background without that isn't enough. Nothing
+about entering the tool interrupts your stream (Steam is already running;
+it just launches/focuses the tool like it would any other game).
+
+**Using it**:
+
+1. Adjust **SDR White Level** and **HDR Peak Brightness** (touch/mouse, or
+   a controller's D-pad to move focus + A to select -- see the touch/mouse
+   caveat below, gamepad is the reliable option right now).
+2. Use **Cycle Test** to step the second test row through a few modes: a
+   small warm-color gradient, then three full-width blocks (saturated /
+   mid / pale). If those saturated/large blocks look flat or shift toward
+   pure red instead of holding their color, Peak Brightness is set too
+   high for your display's actual color volume at that brightness/area --
+   mobile OLEDs in particular have much less headroom for large, saturated
+   highlights than they do for small swatches or neutral white.
+3. Hit **Apply & Preview**. This writes `~/.config/streaming-rig/hdr.conf`
+   and restarts the whole session (gamescope's nits flags are startup-only,
+   so this part *does* briefly interrupt the stream) -- once Steam is back
+   up, it relaunches you straight back into the calibration tool
+   automatically so you can look at the *actual* result on your real
+   display, not a preview.
+4. Repeat until it looks right, then hit **Exit** to return to the normal
    Steam session. Your tuned values persist in `hdr.conf` -- re-running
    `install.sh` won't overwrite them.
 
 A reasonable starting point if you know your display's spec sheet: set
 peak brightness close to its published HDR peak nits, and raise or lower
 white level if midtones look too dark/washed out.
+
+**This only affects SDR content.** gamescope's inverse tone-mapping "only
+works for SDR input" (per its own `--hdr-itm-enabled` docs) -- a game
+rendering **native HDR** output bypasses gamescope's ITM curve entirely, so
+this tool has no effect on it. If a native-HDR game has its own blown-out
+highlights, look for that game's own in-game HDR calibration instead
+(commonly a "Peak Brightness"/"Paper White" slider under its
+Display/Graphics settings) -- the same "lower it until highlights hold
+detail on your specific screen" logic applies there too.
+
+**Touch/mouse limitation**: taps and clicks register, but the reported
+*position* currently collapses to a small area near the center of the
+screen regardless of where you actually tap/click -- a known, currently
+unresolved upstream gamescope bug (see
+[gamescope#1141](https://github.com/ValveSoftware/gamescope/issues/1141),
+[#1540](https://github.com/ValveSoftware/gamescope/issues/1540),
+[#1748](https://github.com/ValveSoftware/gamescope/issues/1748)), not
+something this repo can fix. **Use a gamepad** (D-pad to move focus, A to
+select, B to exit) until that's resolved upstream.
 
 ## Prerequisites
 
@@ -103,12 +143,12 @@ white level if midtones look too dark/washed out.
   machine to this is likely to cause exactly the kind of hard-to-debug
   conflicts this repo is meant to avoid.
 - Arch-based distro with `pacman`. The script installs `gamescope`,
-  `xorg-cvt`, `sunshine`, `steam`, `mangohud`, and `python-pygame` itself
-  (enabling the `multilib` repo first if needed, since Steam requires it)
-  -- all plain packages in CachyOS's own repos, no AUR required. Other
-  Arch-based distros should work in principle, but CachyOS is what this
-  has actually been run on, and package availability/naming may differ
-  elsewhere.
+  `xorg-cvt`, `sunshine`, `steam`, `mangohud`, `python-pygame`,
+  `python-pillow`, and `ttf-dejavu` itself (enabling the `multilib` repo
+  first if needed, since Steam requires it) -- all plain packages in
+  CachyOS's own repos, no AUR required. Other Arch-based distros should
+  work in principle, but CachyOS is what this has actually been run on,
+  and package availability/naming may differ elsewhere.
 - NVIDIA GPU with the open-source `nvidia-open` kernel module. `EDID_MODE=synthetic`
   (the default, no hardware at all) is verified end-to-end -- including
   HDR in an actual game -- on an RTX 4090 with `nvidia-open` and gamescope
@@ -190,6 +230,23 @@ duplicating them.
   `steam` are plain `pacman` packages. On a distro where either comes from
   the AUR, Flatpak, or somewhere else, install them yourself first and the
   script's `pacman -S --needed ...` call will just no-op past them.
+- **HDR calibration is SDR-only**: the "HDR Calibrate" tool tunes
+  gamescope's inverse-tone-mapping curve, which only affects SDR content
+  being boosted to HDR. A game with its own native HDR output isn't
+  affected by it at all -- see **Calibrating HDR** above for what to do
+  instead.
+- **Touch/mouse positioning in the calibration tool**: currently unreliable
+  due to an open upstream gamescope bug that collapses absolute
+  touch/mouse position to a small area near screen center. Clicks/taps
+  still register, just not always where you aimed. Gamepad is unaffected
+  and is the recommended input method until this is fixed upstream -- see
+  **Calibrating HDR** above for details/links.
+- **Steam userdata not yet present**: the HDR Calibrate Steam shortcut and
+  its artwork can only be installed once Steam has logged into an account
+  at least once (it needs to know which `userdata/<id>/` directory to
+  write into). On a genuinely fresh install this happens automatically on
+  first boot, same as the Big Picture GPU-acceleration registry tweak
+  above -- re-run `install.sh` afterward to pick it up.
 
 ## Troubleshooting
 
