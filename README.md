@@ -273,6 +273,22 @@ trigger (Steam's menu, `systemctl suspend`, anything) fails harmlessly
 instead of actually sleeping the machine. If you ever *want* suspend to
 work again: `systemctl unmask <target>...`.
 
+**Occasional stream corruption/glitches.** Check
+`~/.config/sunshine/sunshine.log` for `Warning: setpriority failed for nice
+-15/-10: Permission denied`. The `sunshine` package ships
+`cap_sys_admin,cap_sys_nice` on its own binary, but only in the Permitted
+set, not Effective -- present but dormant, since a process doesn't get to
+use a merely-permitted capability without raising it into its own effective
+set, which sunshine doesn't do. Without it, the encoder thread runs at
+normal scheduling priority, so momentary CPU contention (Steam's UI, a
+game's background threads) can be enough to miss a real-time frame deadline
+and show up as a corrupted/dropped frame in the stream. `install.sh` fixes
+this (`setcap 'cap_sys_admin,cap_sys_nice=eip' /usr/bin/sunshine`), and
+re-applies it every run in case a `sunshine` package update resets it back
+to the package default -- if you're still seeing this after a fresh
+install, re-run `install.sh` to be sure it's applied, then check the log
+again after Sunshine restarts.
+
 **Steam Big Picture's own UI judders, but games run smoothly.** Big
 Picture's UI is CEF/Chromium-based; without hardware acceleration it
 composites in software and stutters independently of the actual game

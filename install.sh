@@ -122,6 +122,20 @@ fi
 echo "==> Granting scheduling capability to gamescope (frame pacing for composited content)"
 setcap 'cap_sys_nice=eip' /usr/bin/gamescope
 
+echo "==> Granting scheduling capability to sunshine (real-time encoder thread priority)"
+# The sunshine package already ships cap_sys_admin,cap_sys_nice on its own
+# binary, but only in the Permitted set (=p), not Effective (=eip) -- present
+# but dormant, since a process doesn't get to use a merely-permitted
+# capability without raising it into its effective set itself, which
+# sunshine doesn't do. Symptom: "Warning: setpriority failed for nice
+# -15/-10: Permission denied" in sunshine.log, and its encoder thread
+# running at normal priority -- under momentary CPU contention (Steam's UI,
+# a game's background threads) that's enough to miss a real-time frame
+# deadline and show up as occasional stream corruption. Re-run explicitly
+# with =eip so it's active immediately; also re-applied here in case a
+# future sunshine package update resets it back to the package default.
+setcap 'cap_sys_admin,cap_sys_nice=eip' /usr/bin/sunshine
+
 echo "==> Adding ${TARGET_USER} to the 'input' group"
 # Sunshine's packaged udev rules (60-sunshine.rules) only grant uaccess to
 # gamepad-named virtual devices (Xbox/PS5/Nintendo pad) -- its generic
