@@ -74,6 +74,10 @@ resolution every boot. This repo:
    already present) than Steam's own default, so a newly installed/updated
    game's shader cache compiles faster instead of stuttering through it
    during your first few minutes of actual play.
+8. **Auto-clones Sunshine's virtual Xbox controller** into a second uinput
+   device the instant it appears (`GAMEPAD_CLONE_ENABLED` in `config.sh`,
+   default on) -- works around certain games not detecting it at all. See
+   **Troubleshooting** below for which games this is for and why.
 
 ## Calibrating HDR
 
@@ -268,6 +272,31 @@ watching raw evdev events on Sunshine's virtual gamepad device while
 testing -- pressing in the wrong order shows up as two separate button
 events with no real overlap, which Steam's chord detection doesn't treat
 as "Guide held, A pressed while held.")
+
+**A game doesn't detect your Xbox controller at all**, even though it works
+fine in Steam's own menus and other games. This is a known upstream bug in
+certain titles -- confirmed for **Star Wars Outlaws** and **Avatar:
+Frontiers of Pandora**, both Ubisoft Snowdrop-engine games, and reported
+widely by Steam Deck owners too (see
+[ValveSoftware/Proton#8261](https://github.com/ValveSoftware/Proton/issues/8261)
+and the [upstream tool's issue tracker](https://gitlab.com/amini-allight/gamepad-clone/-/issues)),
+so it isn't specific to this repo's headless setup -- these games simply
+fail to enumerate a virtual/uinput-created gamepad the first time, Sunshine's
+virtual controller included. `install.sh` fixes this automatically
+(`GAMEPAD_CLONE_ENABLED=true` in `config.sh`, on by default): a udev rule
+launches `gamepad-clone-driver` (vendored under `files/gamepad-clone/` from
+[amini-allight/gamepad-clone](https://gitlab.com/amini-allight/gamepad-clone),
+GPL-3.0, with a couple of local fixes -- see that file's header comment) the
+instant Sunshine creates its virtual Xbox pad, which clones it into a
+second uinput device. Nobody, including the original tool's author, fully
+understands *why* a second device fixes detection -- only that it
+reliably does. If you'd rather not run this, set
+`GAMEPAD_CLONE_ENABLED=false` in `config.sh` before running `install.sh`,
+or fall back to the manual per-launch workaround: open the Steam overlay
+(Guide button) once you're at the game's title/main screen, disable Steam
+Input for the game, close the overlay, reopen it, re-enable Steam Input,
+close it again -- the controller should then be recognized for that
+session.
 
 **A stray Steam power-menu press could suspend the box.** Since
 `gamescope-session.sh` makes Steam believe it's on genuine Deck hardware

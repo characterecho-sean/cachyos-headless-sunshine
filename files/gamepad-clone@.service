@@ -1,0 +1,9 @@
+[Unit]
+Description=Clone %I as a second virtual gamepad (Star Wars Outlaws controller-detection workaround)
+BindsTo=dev-input-%i.device
+After=dev-input-%i.device
+
+[Service]
+ExecStart=/usr/local/bin/gamepad-clone-driver /dev/input/%i
+Restart=on-failure
+RestartSec=1
