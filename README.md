@@ -69,9 +69,11 @@ resolution every boot. This repo:
    **Calibrating HDR** below.
 7. **Tunes Steam's shader pre-caching** to use more background CPU threads
    (`STEAM_SHADER_BG_THREADS` in `config.sh`, via an undocumented
-   `steam_dev.cfg` dev-config setting) than Steam's own default, so a
-   newly installed/updated game's shader cache compiles faster instead of
-   stuttering through it during your first few minutes of actual play.
+   `steam_dev.cfg` dev-config setting, plus enabling the equivalent
+   `EnableShaderBackgroundProcessing` UI toggle in `config.vdf` if it's
+   already present) than Steam's own default, so a newly installed/updated
+   game's shader cache compiles faster instead of stuttering through it
+   during your first few minutes of actual play.
 
 ## Calibrating HDR
 
@@ -311,6 +313,31 @@ running (`ps -eo pid,ppid,args | grep sunshine`) and kill it if so, then
 getty@tty1.service`. Simplest prevention: let a full session restart
 (killing `gamescope`, not `sunshine` directly) be what restarts Sunshine,
 same as the HDR calibration tool's own Apply & Preview flow already does.
+
+**Reaching a Steam settings page that Big Picture doesn't render at all.**
+A few Steam settings pages (confirmed case: Settings -> Downloads -> Shader
+Pre-Caching, including the "Allow background processing of Vulkan shaders"
+toggle -- see item 7 above) simply don't exist in Big Picture's build of
+Steam, full stop -- not hidden behind scrolling, not gated by the
+`SteamDeck=1`/`-steamos3` spoof, just absent. Removing `-bigpicture` from
+`streaming-session.sh` alone doesn't help either: Steam detects it's
+running under gamescope specifically and forces its console-style UI
+regardless of launch flags. The only way found to reach genuine desktop
+Steam here is to run a different compositor in gamescope's place, since
+Steam's "am I under gamescope" detection is tied to the compositor itself,
+not any flag we control:
+1. Temporarily replace `~/.zprofile`'s `exec gamescope ...` line with
+   `exec kwin_wayland --drm --xwayland -- steam` (installing `kwin` first
+   if needed -- it's a plain `pacman -S kwin` package, no full Plasma
+   session required).
+2. Restart the session (`pkill gamescope`, matching the safe-restart note
+   above -- gamescope isn't actually running anymore at this point, but
+   the same "don't bare-background sunshine" caution applies to whatever
+   you use to launch Sunshine here too).
+3. Sunshine still captures via KMS the same way, so reconnecting over
+   Moonlight shows a real desktop session instead of Big Picture.
+4. Revert `.zprofile` back afterward -- this is a one-off detour, not a
+   permanent second mode, and isn't something `install.sh` sets up.
 
 **Steam Big Picture's own UI judders, but games run smoothly.** Big
 Picture's UI is CEF/Chromium-based; without hardware acceleration it

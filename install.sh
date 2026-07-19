@@ -213,6 +213,31 @@ else
     echo "    STEAM_SHADER_BG_THREADS=0, skipping (leaving any existing steam_dev.cfg alone)"
 fi
 
+# The actual UI toggle behind Settings -> Downloads -> Shader Pre-Caching ->
+# "Allow background processing of Vulkan shaders" -- confirmed via a real
+# toggle that this is EnableShaderBackgroundProcessing in config.vdf,
+# alongside steam_dev.cfg's thread count above (both were observed active
+# together: fossilize_replay running with --num-threads matching
+# STEAM_SHADER_BG_THREADS). That settings page only renders in desktop
+# Steam, not Big Picture, in this Steam version -- and Steam itself only
+# creates this key once that page has actually been opened/touched, so a
+# fresh install won't have it yet. Same safe pattern as the CEF keys above:
+# only flip it if it's already there, never risk hand-editing config.vdf's
+# nested structure to insert a key that isn't.
+STEAM_CONFIG_VDF="$TARGET_HOME/.local/share/Steam/config/config.vdf"
+if [ -f "$STEAM_CONFIG_VDF" ] && grep -q "\"EnableShaderBackgroundProcessing\"" "$STEAM_CONFIG_VDF"; then
+    sed -i -E 's|("EnableShaderBackgroundProcessing"[[:space:]]*)"[^"]*"|\1"1"|' "$STEAM_CONFIG_VDF"
+    echo "    EnableShaderBackgroundProcessing set to 1 in config.vdf"
+else
+    echo "    'EnableShaderBackgroundProcessing' not yet in config.vdf -- this is normal"
+    echo "    until that settings page has been opened at least once. steam_dev.cfg's"
+    echo "    thread count above already provides the practical equivalent; if you want"
+    echo "    the UI toggle itself reflected too, see README's Troubleshooting section"
+    echo "    for how to reach desktop Steam's Settings -> Downloads -> Shader"
+    echo "    Pre-Caching (Big Picture doesn't render that page at all), then re-run"
+    echo "    install.sh once you've toggled it there."
+fi
+
 echo "==> Installing gamescope session script"
 cp "$SCRIPT_DIR/files/gamescope-session.sh" "$TARGET_HOME/.config/gamescope-session.sh"
 chmod +x "$TARGET_HOME/.config/gamescope-session.sh"
