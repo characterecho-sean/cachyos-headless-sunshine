@@ -1,0 +1,9 @@
+# Auto-launch gamepad-clone-driver against Sunshine's virtual Xbox pad --
+# works around Star Wars Outlaws / Avatar: Frontiers of Pandora (and likely
+# other Snowdrop-engine Ubisoft titles) not detecting it. See README
+# Troubleshooting. Name pattern matches Sunshine's own packaged
+# 60-sunshine.rules exactly (SUBSYSTEMS=="input", ATTRS{name}=="Sunshine
+# X-Box One (virtual) pad*"), scoped to the event node specifically and
+# excluding this driver's own clone output (named with a "(uinput-clone)"
+# suffix) so it doesn't recursively clone itself.
+KERNEL=="event*", SUBSYSTEMS=="input", ATTRS{name}=="Sunshine X-Box One (virtual) pad*", ATTRS{name}!="*uinput-clone*", TAG+="systemd", ENV{SYSTEMD_WANTS}="gamepad-clone@%k.service"

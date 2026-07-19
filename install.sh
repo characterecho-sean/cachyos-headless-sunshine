@@ -43,8 +43,8 @@ if ! pacman-conf --repo-list | grep -qx multilib; then
     fi
 fi
 
-echo "==> Installing gamescope, xorg-cvt, sunshine, steam, mangohud, python-pygame, python-pillow, ttf-dejavu"
-pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud python-pygame python-pillow ttf-dejavu
+echo "==> Installing gamescope, xorg-cvt, sunshine, steam, mangohud, gcc, python-pygame, python-pillow, ttf-dejavu"
+pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud gcc python-pygame python-pillow ttf-dejavu
 
 mkdir -p /usr/lib/firmware/edid
 if [ "$EDID_MODE" = "synthetic" ]; then
@@ -147,6 +147,33 @@ echo "==> Adding ${TARGET_USER} to the 'input' group"
 # login (a reboot, per the final step below, is the simplest way) to take
 # effect -- restarting gamescope/Sunshine alone won't pick it up.
 usermod -aG input "$TARGET_USER"
+
+if [ "$GAMEPAD_CLONE_ENABLED" = "true" ]; then
+    echo "==> Building and installing the gamepad-clone driver"
+    # Works around Star Wars Outlaws (and likely other Snowdrop-engine
+    # Ubisoft titles) not detecting Sunshine's virtual Xbox controller -- a
+    # known upstream game bug. See README Troubleshooting and
+    # files/gamepad-clone/driver.c for provenance/details.
+    cc -std=c89 -O2 -Wall \
+        -o /usr/local/bin/gamepad-clone-driver \
+        "$SCRIPT_DIR/files/gamepad-clone/driver.c"
+
+    cp "$SCRIPT_DIR/files/99-gamepad-clone.rules" /etc/udev/rules.d/99-gamepad-clone.rules
+    cp "$SCRIPT_DIR/files/gamepad-clone@.service" /etc/systemd/system/gamepad-clone@.service
+
+    udevadm control --reload-rules
+    systemctl daemon-reload
+    # Re-fires ADD events for already-present input devices so an existing
+    # Sunshine virtual pad (e.g. a session already streaming when you ran
+    # this) picks up the new rule immediately, without needing a
+    # reconnect/reboot.
+    udevadm trigger --subsystem-match=input --action=add
+else
+    echo "==> GAMEPAD_CLONE_ENABLED=false, skipping the gamepad-clone driver"
+    echo "    (any previously installed copy under /usr/local/bin, /etc/udev/rules.d,"
+    echo "    or /etc/systemd/system is left in place -- remove those by hand if you"
+    echo "    want to fully undo a prior install)"
+fi
 
 echo "==> Merging Sunshine config"
 mkdir -p "$TARGET_HOME/.config/sunshine"

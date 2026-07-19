@@ -87,6 +87,17 @@ SUNSHINE_CSRF_ORIGINS="https://YOUR_HOST_IP:47990,https://YOUR_HOSTNAME.local:47
 # stream. Lower it if you notice contention; 0 disables the line entirely.
 STEAM_SHADER_BG_THREADS=$(( $(nproc) / 2 ))
 
+# ---- Gamepad clone ----
+# Auto-clones Sunshine's virtual Xbox controller into a second uinput
+# device the moment it appears -- works around Star Wars Outlaws (and
+# likely other Snowdrop-engine Ubisoft titles, e.g. Avatar: Frontiers of
+# Pandora) failing to detect it at all, a known upstream game bug, not
+# something specific to this repo's setup. See README Troubleshooting for
+# how/why. Only relevant if you use an Xbox-style controller; leave this on
+# unless you've confirmed you don't need it, since it's inert (does
+# nothing) whenever Sunshine's virtual Xbox pad never appears.
+GAMEPAD_CLONE_ENABLED=true
+
 # ---- Session ----
 # The user the streaming session runs as. Defaults to whoever invoked sudo.
 TARGET_USER="${SUDO_USER:-$USER}"
