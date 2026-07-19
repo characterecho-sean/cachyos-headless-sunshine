@@ -85,7 +85,15 @@ fi
 
 echo "==> Registering EDID with mkinitcpio"
 if ! grep -q "edid/${EDID_FIRMWARE_NAME}" /etc/mkinitcpio.conf; then
-    sed -i -E "s|^FILES=\((.*)\)|FILES=(\1 \"edid/${EDID_FIRMWARE_NAME}\")|" /etc/mkinitcpio.conf
+    # mkinitcpio's FILES=() array needs an absolute path -- it's telling
+    # mkinitcpio which real file on the root filesystem to copy into the
+    # initramfs, not a kernel firmware-search-relative reference (that's
+    # what the drm.edid_firmware= kernel cmdline arg below is for, and
+    # that one IS meant to be relative to /usr/lib/firmware). A bare
+    # relative "edid/${EDID_FIRMWARE_NAME}" here silently fails every
+    # kernel build with "ERROR: file not found", even though the file
+    # genuinely exists at /usr/lib/firmware/edid/${EDID_FIRMWARE_NAME}.
+    sed -i -E "s|^FILES=\((.*)\)|FILES=(\1 \"/usr/lib/firmware/edid/${EDID_FIRMWARE_NAME}\")|" /etc/mkinitcpio.conf
     mkinitcpio -P
 else
     echo "    already registered, skipping"
