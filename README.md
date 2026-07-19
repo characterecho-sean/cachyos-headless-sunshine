@@ -154,7 +154,7 @@ select, B to exit) until that's resolved upstream.
   machine to this is likely to cause exactly the kind of hard-to-debug
   conflicts this repo is meant to avoid.
 - Arch-based distro with `pacman`. The script installs `gamescope`,
-  `xorg-cvt`, `sunshine`, `steam`, `mangohud`, `python-pygame`,
+  `libxcvt`, `sunshine`, `steam`, `mangohud`, `gcc`, `python-pygame`,
   `python-pillow`, and `ttf-dejavu` itself (enabling the `multilib` repo
   first if needed, since Steam requires it) -- all plain packages in
   CachyOS's own repos, no AUR required. Other Arch-based distros should

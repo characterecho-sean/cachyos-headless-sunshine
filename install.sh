@@ -25,7 +25,7 @@ if [ -z "$TARGET_HOME" ]; then
 fi
 
 if ! command -v pacman >/dev/null 2>&1; then
-    echo "This installer is pacman-only (CachyOS/Arch). Install gamescope, xorg-cvt," >&2
+    echo "This installer is pacman-only (CachyOS/Arch). Install gamescope, libxcvt," >&2
     echo "sunshine, and steam yourself for your distro, then re-run." >&2
     exit 1
 fi
@@ -43,8 +43,8 @@ if ! pacman-conf --repo-list | grep -qx multilib; then
     fi
 fi
 
-echo "==> Installing gamescope, xorg-cvt, sunshine, steam, mangohud, gcc, python-pygame, python-pillow, ttf-dejavu"
-pacman -S --needed --noconfirm gamescope xorg-cvt sunshine steam mangohud gcc python-pygame python-pillow ttf-dejavu
+echo "==> Installing gamescope, libxcvt, sunshine, steam, mangohud, gcc, python-pygame, python-pillow, ttf-dejavu"
+pacman -S --needed --noconfirm gamescope libxcvt sunshine steam mangohud gcc python-pygame python-pillow ttf-dejavu
 
 mkdir -p /usr/lib/firmware/edid
 if [ "$EDID_MODE" = "synthetic" ]; then
