@@ -67,6 +67,11 @@ resolution every boot. This repo:
    art/banner), so you can tune the inverse-tone-mapping curve against
    your actual display instead of guessing at numbers in `config.sh`. See
    **Calibrating HDR** below.
+7. **Tunes Steam's shader pre-caching** to use more background CPU threads
+   (`STEAM_SHADER_BG_THREADS` in `config.sh`, via an undocumented
+   `steam_dev.cfg` dev-config setting) than Steam's own default, so a
+   newly installed/updated game's shader cache compiles faster instead of
+   stuttering through it during your first few minutes of actual play.
 
 ## Calibrating HDR
 
@@ -288,6 +293,24 @@ re-applies it every run in case a `sunshine` package update resets it back
 to the package default -- if you're still seeing this after a fresh
 install, re-run `install.sh` to be sure it's applied, then check the log
 again after Sunshine restarts.
+
+**Manually restarting Sunshine can wedge the whole console session.**
+Sunshine's `kms` capture backend holds the DRM device open for the
+duration it runs. If you kill/restart Sunshine as a bare background
+process instead of going through a full session restart (`pkill
+gamescope`, or a reboot), and its old process doesn't actually exit (e.g.
+it gets orphaned rather than cleanly killed), the new gamescope session
+that starts afterward can fail outright with `Failed to open device:
+'/dev/dri/cardN': Device or resource busy` -- and since that failure
+repeats on every autologin retry, `systemd` can hit
+`getty@tty1.service`'s restart-rate limit and give up entirely
+(`Result: start-limit-hit`), taking the console down until you
+intervene. Recovery: confirm no orphaned `sunshine` process is still
+running (`ps -eo pid,ppid,args | grep sunshine`) and kill it if so, then
+`sudo systemctl reset-failed getty@tty1.service && sudo systemctl restart
+getty@tty1.service`. Simplest prevention: let a full session restart
+(killing `gamescope`, not `sunshine` directly) be what restarts Sunshine,
+same as the HDR calibration tool's own Apply & Preview flow already does.
 
 **Steam Big Picture's own UI judders, but games run smoothly.** Big
 Picture's UI is CEF/Chromium-based; without hardware acceleration it

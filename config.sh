@@ -76,6 +76,17 @@ SUNSHINE_RENDER_NODE="/dev/dri/renderD128"
 # another machine.
 SUNSHINE_CSRF_ORIGINS="https://YOUR_HOST_IP:47990,https://YOUR_HOSTNAME.local:47990"
 
+# ---- Steam shader pre-caching ----
+# Undocumented (Valve doesn't publish it) Steam dev-config knob that
+# dedicates background CPU threads to precompiling a game's shader cache
+# after install/update, so the first few minutes of play aren't stuttery --
+# see steam_dev.cfg below. Since this is a live streaming rig with
+# real-time encoding, this defaults to half your CPU threads rather than
+# the "leave 4-6 free" usually recommended for a plain desktop, so a
+# concurrent download/shader-precache doesn't compete with an active
+# stream. Lower it if you notice contention; 0 disables the line entirely.
+STEAM_SHADER_BG_THREADS=$(( $(nproc) / 2 ))
+
 # ---- Session ----
 # The user the streaming session runs as. Defaults to whoever invoked sudo.
 TARGET_USER="${SUDO_USER:-$USER}"

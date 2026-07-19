@@ -193,6 +193,26 @@ else
     echo "    UI can judder even though games run smoothly (see README Troubleshooting)."
 fi
 
+echo "==> Configuring Steam shader pre-caching background threads"
+# Undocumented Steam dev-config file, only read at Steam startup. Note this
+# lives directly under ~/.local/share/Steam (NOT ~/.steam/steam, though
+# that's usually a symlink to the same place) -- write the real path so
+# this doesn't depend on that symlink existing.
+STEAM_DEV_CFG="$TARGET_HOME/.local/share/Steam/steam_dev.cfg"
+if [ "$STEAM_SHADER_BG_THREADS" -gt 0 ]; then
+    mkdir -p "$(dirname "$STEAM_DEV_CFG")"
+    touch "$STEAM_DEV_CFG"
+    if grep -q "^unShaderBackgroundProcessingThreads" "$STEAM_DEV_CFG"; then
+        sed -i "s/^unShaderBackgroundProcessingThreads.*/unShaderBackgroundProcessingThreads ${STEAM_SHADER_BG_THREADS}/" "$STEAM_DEV_CFG"
+    else
+        echo "unShaderBackgroundProcessingThreads ${STEAM_SHADER_BG_THREADS}" >> "$STEAM_DEV_CFG"
+    fi
+    echo "    ${STEAM_SHADER_BG_THREADS} threads (needs a Steam restart to take effect --"
+    echo "    a reboot, per the final step below, is sufficient)"
+else
+    echo "    STEAM_SHADER_BG_THREADS=0, skipping (leaving any existing steam_dev.cfg alone)"
+fi
+
 echo "==> Installing gamescope session script"
 cp "$SCRIPT_DIR/files/gamescope-session.sh" "$TARGET_HOME/.config/gamescope-session.sh"
 chmod +x "$TARGET_HOME/.config/gamescope-session.sh"
